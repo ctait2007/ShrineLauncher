@@ -1,0 +1,30 @@
+name: Bootstrap - Unzip and Commit Project
+
+on:
+  push:
+    paths:
+      - 'ShrineLauncher.zip'  # only triggers when the zip is uploaded
+
+jobs:
+  unzip-and-commit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Unzip project
+        run: |
+          unzip -o ShrineLauncher.zip
+          # Move contents out of the subfolder to repo root
+          cp -r ShrineLauncher/. .
+          rm -rf ShrineLauncher
+          rm ShrineLauncher.zip
+
+      - name: Commit all project files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Bootstrap: unzip and add project files"
+          git push
