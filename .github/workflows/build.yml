@@ -1,38 +1,3079 @@
 name: Build Shrine Launcher APK
 
 on:
-  push:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-java@v4
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
           java-version: '17'
           distribution: 'temurin'
 
-      - uses: android-actions/setup-android@v3
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
 
-      - name: Find and move project files if in subfolder
+      - name: Write project files
         run: |
-          if [ ! -f "gradlew" ] && [ -f "ShrineLauncher/gradlew" ]; then
-            cp -r ShrineLauncher/. .
-            rm -rf ShrineLauncher
-          fi
+  mkdir -p "$(dirname 'build.gradle.kts')"
+  cat > 'build.gradle.kts' << 'FILEOF'
+plugins {
+    id("com.android.application") version "8.2.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+}
+
+FILEOF
+  mkdir -p "$(dirname 'gradlew')"
+  cat > 'gradlew' << 'FILEOF'
+#!/bin/sh
+# Gradle wrapper script for Unix
+
+APP_NAME="Gradle"
+APP_BASE_NAME=`basename "$0"`
+
+# Resolve links
+PRG="$0"
+while [ -h "$PRG" ] ; do
+    ls=`ls -ld "$PRG"`
+    link=`expr "$ls" : '"'"'.*-> \(.*\)$'"'"'`
+    if expr "$link" : '"'"'/.*'"'"' > /dev/null; then
+        PRG="$link"
+    else
+        PRG=`dirname "$PRG"`"/$link"
+    fi
+done
+SAVED="`pwd`"
+cd "`dirname \"$PRG\"`/" >/dev/null
+APP_HOME="`pwd -P`"
+cd "$SAVED" >/dev/null
+
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
+
+# Determine the Java command to use
+if [ -n "$JAVA_HOME" ] ; then
+    JAVACMD="$JAVA_HOME/bin/java"
+else
+    JAVACMD="java"
+fi
+
+exec "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"
+
+FILEOF
+  mkdir -p "$(dirname 'settings.gradle.kts')"
+  cat > 'settings.gradle.kts' << 'FILEOF'
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "ShrineLauncher"
+include(":app")
+
+FILEOF
+  mkdir -p "$(dirname 'app/build.gradle.kts')"
+  cat > 'app/build.gradle.kts' << 'FILEOF'
+plugins {
+    id("com.android.application")
+    id("org.jetbrains.kotlin.android")
+}
+
+android {
+    namespace = "com.shrine.launcher"
+    compileSdk = 34
+
+    defaultConfig {
+        applicationId = "com.shrine.launcher"
+        minSdk = 22
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0.0"
+    }
+
+    buildTypes {
+        release {
+            isMinifyEnabled = false
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+}
+
+dependencies {
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.appcompat:appcompat:1.6.1")
+    implementation("androidx.leanback:leanback:1.2.0-alpha02")
+    implementation("androidx.recyclerview:recyclerview:1.3.2")
+    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation("com.google.android.material:material:1.11.0")
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
+    implementation("androidx.preference:preference-ktx:1.2.1")
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    implementation("androidx.palette:palette-ktx:1.0.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("com.google.code.gson:gson:2.10.1")
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/proguard-rules.pro')"
+  cat > 'app/proguard-rules.pro' << 'FILEOF'
+# Shrine Launcher ProGuard rules
+-keep class com.shrine.launcher.data.model.** { *; }
+-keepclassmembers class com.shrine.launcher.data.model.** { *; }
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/AndroidManifest.xml')"
+  cat > 'app/src/main/AndroidManifest.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
+        tools:ignore="QueryAllPackagesPermission"
+        xmlns:tools="http://schemas.android.com/tools"/>
+
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false" />
+    <uses-feature android:name="android.software.leanback" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.ShrineLauncher"
+        android:banner="@mipmap/ic_launcher">
+
+        <!-- Main Launcher Activity -->
+        <activity
+            android:name=".ui.home.HomeActivity"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="stateUnspecified|adjustPan">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Settings Activity -->
+        <activity
+            android:name=".ui.settings.SettingsActivity"
+            android:exported="false"
+            android:label="@string/settings_title" />
+
+        <!-- Row Editor Activity -->
+        <activity
+            android:name=".ui.settings.RowEditorActivity"
+            android:exported="false"
+            android:label="@string/row_editor_title" />
+
+        <!-- App Picker Activity -->
+        <activity
+            android:name=".ui.settings.AppPickerActivity"
+            android:exported="false"
+            android:label="@string/app_picker_title" />
+
+        <!-- Boot receiver to restore launcher on reboot -->
+        <receiver
+            android:name=".util.BootReceiver"
+            android:exported="true">
+            <intent-filter android:priority="1000">
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/data/model/Models.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/data/model/Models.kt' << 'FILEOF'
+package com.shrine.launcher.data.model
+
+import android.graphics.drawable.Drawable
+
+// ── App Info ─────────────────────────────────────────────────────────────────
+
+data class AppInfo(
+    val packageName: String,
+    val label: String,
+    val icon: Drawable?,
+    val isSystemApp: Boolean = false
+)
+
+// ── Row types ─────────────────────────────────────────────────────────────────
+
+enum class RowType {
+    ALL_APPS,
+    FAVORITES,
+    CUSTOM,
+    CONTINUE_WATCHING,
+    RECENTLY_OPENED,
+    SUGGESTIONS
+}
+
+data class LauncherRow(
+    val id: String,
+    val title: String,
+    val type: RowType,
+    val apps: MutableList<String> = mutableListOf(), // packageNames for CUSTOM/FAVORITES
+    val isVisible: Boolean = true,
+    val isPinned: Boolean = false       // pinned rows appear above the main list
+)
+
+// ── Continue Watching entry ───────────────────────────────────────────────────
+
+data class ContinueWatchingEntry(
+    val id: String,
+    val title: String,
+    val subtitle: String,           // e.g. "S2 E4 • Netflix"
+    val packageName: String,        // app that owns this entry
+    val deepLinkUri: String?,       // URI to resume playback
+    val artworkUri: String?,        // thumbnail / backdrop
+    val progressMs: Long = 0,       // playback position
+    val durationMs: Long = 0        // total duration (0 = unknown)
+) {
+    val progressPercent: Int
+        get() = if (durationMs > 0) ((progressMs * 100) / durationMs).toInt() else 0
+}
+
+// ── Widget descriptor ─────────────────────────────────────────────────────────
+
+enum class WidgetType {
+    CONTINUE_WATCHING,
+    CLOCK,
+    WEATHER,
+    QUICK_SETTINGS
+}
+
+data class PinnedWidget(
+    val id: String,
+    val type: WidgetType,
+    val title: String,
+    val position: Int = 0           // order among pinned widgets
+)
+
+// ── Theme ─────────────────────────────────────────────────────────────────────
+
+data class LauncherTheme(
+    val id: String,
+    val name: String,
+    val backgroundColorHex: String  = "#0D0D0D",
+    val accentColorHex: String      = "#E040FB",
+    val cardColorHex: String        = "#1E1E1E",
+    val textPrimaryHex: String      = "#FFFFFF",
+    val textSecondaryHex: String    = "#B0B0B0",
+    val useDynamicColor: Boolean    = false,
+    val backgroundImageUri: String? = null,
+    val backgroundBlur: Int         = 0,         // 0-25
+    val backgroundDim: Int          = 60         // 0-100
+)
+
+// ── Preferences snapshot (serialised to JSON) ─────────────────────────────────
+
+data class LauncherPrefs(
+    val rows: List<LauncherRow>             = defaultRows(),
+    val pinnedWidgets: List<PinnedWidget>   = emptyList(),
+    val theme: LauncherTheme                = LauncherTheme("default", "Dark"),
+    val clockEnabled: Boolean               = true,
+    val clockFormat24h: Boolean             = false,
+    val focusScaleEnabled: Boolean          = true,
+    val focusScaleFactor: Float             = 1.12f,
+    val rowLabelStyle: String               = "ABOVE",  // ABOVE | INLINE | HIDDEN
+    val iconSize: Int                       = 96,       // dp
+    val cardStyle: String                   = "ROUNDED",// ROUNDED | SQUARE | CIRCLE
+    val animationsEnabled: Boolean          = true
+)
+
+private fun defaultRows(): List<LauncherRow> = listOf(
+    LauncherRow("row_favorites",  "Favorites",       RowType.FAVORITES),
+    LauncherRow("row_all_apps",   "All Apps",        RowType.ALL_APPS),
+    LauncherRow("row_recent",     "Recently Opened", RowType.RECENTLY_OPENED)
+)
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/data/repository/AppRepository.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/data/repository/AppRepository.kt' << 'FILEOF'
+package com.shrine.launcher.data.repository
+
+import android.app.usage.UsageStatsManager
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import com.shrine.launcher.data.model.AppInfo
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+
+class AppRepository(private val context: Context) {
+
+    private val pm: PackageManager = context.packageManager
+
+    /** Returns all launchable apps sorted alphabetically. */
+    suspend fun getAllApps(): List<AppInfo> = withContext(Dispatchers.IO) {
+        val intent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_LAUNCHER)
+        }
+        pm.queryIntentActivities(intent, 0)
+            .map { ri ->
+                AppInfo(
+                    packageName = ri.activityInfo.packageName,
+                    label       = ri.loadLabel(pm).toString(),
+                    icon        = ri.loadIcon(pm),
+                    isSystemApp = (ri.activityInfo.applicationInfo.flags and
+                            android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+                )
+            }
+            .distinctBy { it.packageName }
+            .sortedBy { it.label.lowercase() }
+    }
+
+    /** Returns apps sorted by last-used time (requires PACKAGE_USAGE_STATS permission). */
+    suspend fun getRecentlyUsed(limit: Int = 20): List<AppInfo> = withContext(Dispatchers.IO) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) return@withContext emptyList()
+
+        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
+            ?: return@withContext emptyList()
+
+        val now = System.currentTimeMillis()
+        val stats = usm.queryUsageStats(
+            UsageStatsManager.INTERVAL_WEEKLY,
+            now - 7 * 24 * 60 * 60 * 1000L,
+            now
+        ) ?: return@withContext emptyList()
+
+        val allApps = getAllApps().associateBy { it.packageName }
+
+        stats.asSequence()
+            .filter { it.lastTimeUsed > 0 && allApps.containsKey(it.packageName) }
+            .sortedByDescending { it.lastTimeUsed }
+            .take(limit)
+            .mapNotNull { allApps[it.packageName] }
+            .toList()
+    }
+
+    /** Launch an app by package name. Returns false if not found. */
+    fun launchApp(packageName: String): Boolean {
+        val intent = pm.getLaunchIntentForPackage(packageName) ?: return false
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return try {
+            context.startActivity(intent)
+            true
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    /** Get a single AppInfo. */
+    fun getAppInfo(packageName: String): AppInfo? {
+        return try {
+            val ai = pm.getApplicationInfo(packageName, 0)
+            AppInfo(
+                packageName = packageName,
+                label       = pm.getApplicationLabel(ai).toString(),
+                icon        = pm.getApplicationIcon(packageName),
+                isSystemApp = (ai.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+            )
+        } catch (e: PackageManager.NameNotFoundException) {
+            null
+        }
+    }
+
+    companion object {
+        @Volatile private var instance: AppRepository? = null
+        fun getInstance(context: Context): AppRepository =
+            instance ?: synchronized(this) {
+                instance ?: AppRepository(context.applicationContext).also { instance = it }
+            }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/data/repository/PreferencesRepository.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/data/repository/PreferencesRepository.kt' << 'FILEOF'
+package com.shrine.launcher.data.repository
+
+import android.content.Context
+import android.content.SharedPreferences
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.shrine.launcher.data.model.*
+import java.util.UUID
+
+class PreferencesRepository(context: Context) {
+
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("shrine_launcher_prefs", Context.MODE_PRIVATE)
+    private val gson = Gson()
+
+    // ── LauncherPrefs ──────────────────────────────────────────────────────────
+
+    fun loadPrefs(): LauncherPrefs {
+        val json = prefs.getString(KEY_PREFS, null) ?: return LauncherPrefs()
+        return try {
+            gson.fromJson(json, LauncherPrefs::class.java) ?: LauncherPrefs()
+        } catch (e: Exception) {
+            LauncherPrefs()
+        }
+    }
+
+    fun savePrefs(p: LauncherPrefs) {
+        prefs.edit().putString(KEY_PREFS, gson.toJson(p)).apply()
+    }
+
+    // ── Rows ───────────────────────────────────────────────────────────────────
+
+    fun loadRows(): MutableList<LauncherRow> = loadPrefs().rows.toMutableList()
+
+    fun saveRows(rows: List<LauncherRow>) {
+        savePrefs(loadPrefs().copy(rows = rows))
+    }
+
+    fun addRow(row: LauncherRow) {
+        val rows = loadRows()
+        rows.add(row)
+        saveRows(rows)
+    }
+
+    fun removeRow(rowId: String) {
+        val rows = loadRows().filter { it.id != rowId }
+        saveRows(rows)
+    }
+
+    fun updateRow(updated: LauncherRow) {
+        val rows = loadRows().map { if (it.id == updated.id) updated else it }
+        saveRows(rows)
+    }
+
+    fun reorderRows(newOrder: List<LauncherRow>) = saveRows(newOrder)
+
+    // ── Pinned Widgets ─────────────────────────────────────────────────────────
+
+    fun loadWidgets(): MutableList<PinnedWidget> = loadPrefs().pinnedWidgets.toMutableList()
+
+    fun saveWidgets(widgets: List<PinnedWidget>) {
+        savePrefs(loadPrefs().copy(pinnedWidgets = widgets))
+    }
+
+    fun addWidget(type: WidgetType, title: String) {
+        val widgets = loadWidgets()
+        widgets.add(PinnedWidget(UUID.randomUUID().toString(), type, title, widgets.size))
+        saveWidgets(widgets)
+    }
+
+    fun removeWidget(widgetId: String) {
+        saveWidgets(loadWidgets().filter { it.id != widgetId })
+    }
+
+    // ── Theme ──────────────────────────────────────────────────────────────────
+
+    fun loadTheme(): LauncherTheme = loadPrefs().theme
+
+    fun saveTheme(theme: LauncherTheme) {
+        savePrefs(loadPrefs().copy(theme = theme))
+    }
+
+    // ── Continue Watching ──────────────────────────────────────────────────────
+
+    fun loadContinueWatching(): List<ContinueWatchingEntry> {
+        val json = prefs.getString(KEY_CONTINUE_WATCHING, null) ?: return emptyList()
+        return try {
+            val type = object : TypeToken<List<ContinueWatchingEntry>>() {}.type
+            gson.fromJson(json, type) ?: emptyList()
+        } catch (e: Exception) {
+            emptyList()
+        }
+    }
+
+    fun saveContinueWatching(entries: List<ContinueWatchingEntry>) {
+        prefs.edit().putString(KEY_CONTINUE_WATCHING, gson.toJson(entries)).apply()
+    }
+
+    fun upsertContinueWatchingEntry(entry: ContinueWatchingEntry) {
+        val list = loadContinueWatching().toMutableList()
+        val idx = list.indexOfFirst { it.id == entry.id }
+        if (idx >= 0) list[idx] = entry else list.add(0, entry)
+        // cap at 20 entries
+        saveContinueWatching(list.take(20))
+    }
+
+    fun removeContinueWatchingEntry(id: String) {
+        saveContinueWatching(loadContinueWatching().filter { it.id != id })
+    }
+
+    // ── Favourites ─────────────────────────────────────────────────────────────
+
+    fun loadFavourites(): MutableList<String> {
+        val json = prefs.getString(KEY_FAVOURITES, null) ?: return mutableListOf()
+        return try {
+            val type = object : TypeToken<MutableList<String>>() {}.type
+            gson.fromJson(json, type) ?: mutableListOf()
+        } catch (e: Exception) {
+            mutableListOf()
+        }
+    }
+
+    fun saveFavourites(packageNames: List<String>) {
+        prefs.edit().putString(KEY_FAVOURITES, gson.toJson(packageNames)).apply()
+    }
+
+    fun toggleFavourite(packageName: String): Boolean {
+        val favs = loadFavourites()
+        return if (favs.contains(packageName)) {
+            favs.remove(packageName)
+            saveFavourites(favs)
+            false
+        } else {
+            favs.add(packageName)
+            saveFavourites(favs)
+            true
+        }
+    }
+
+    companion object {
+        private const val KEY_PREFS             = "launcher_prefs"
+        private const val KEY_CONTINUE_WATCHING = "continue_watching"
+        private const val KEY_FAVOURITES        = "favourites"
+
+        @Volatile private var instance: PreferencesRepository? = null
+
+        fun getInstance(context: Context): PreferencesRepository =
+            instance ?: synchronized(this) {
+                instance ?: PreferencesRepository(context.applicationContext).also { instance = it }
+            }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/home/AppContextMenuDialog.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/home/AppContextMenuDialog.kt' << 'FILEOF'
+package com.shrine.launcher.ui.home
+
+import android.app.Dialog
+import android.content.Context
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
+import android.os.Bundle
+import android.view.Gravity
+import android.view.Window
+import android.view.WindowManager
+import android.widget.Button
+import android.widget.ImageView
+import android.widget.TextView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.AppInfo
+
+class AppContextMenuDialog(
+    context: Context,
+    private val app: AppInfo,
+    private val isFavourite: Boolean,
+    private val onFavouriteToggle: () -> Unit,
+    private val onLaunch: () -> Unit
+) : Dialog(context) {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        requestWindowFeature(Window.FEATURE_NO_TITLE)
+        setContentView(R.layout.dialog_app_context_menu)
+        window?.apply {
+            setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+            setGravity(Gravity.CENTER)
+            setLayout(
+                WindowManager.LayoutParams.WRAP_CONTENT,
+                WindowManager.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        findViewById<ImageView>(R.id.ivAppIconMenu).setImageDrawable(app.icon)
+        findViewById<TextView>(R.id.tvAppNameMenu).text = app.label
+
+        val btnFav = findViewById<Button>(R.id.btnToggleFavourite)
+        btnFav.text = if (isFavourite) "Remove from Favourites" else "Add to Favourites"
+        btnFav.setOnClickListener {
+            onFavouriteToggle()
+            dismiss()
+        }
+
+        findViewById<Button>(R.id.btnOpen).setOnClickListener {
+            onLaunch()
+            dismiss()
+        }
+
+        findViewById<Button>(R.id.btnCancel).setOnClickListener { dismiss() }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/home/AppsAdapter.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/home/AppsAdapter.kt' << 'FILEOF'
+package com.shrine.launcher.ui.home
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.AppInfo
+
+class AppsAdapter(
+    private val onAppClick: (AppInfo) -> Unit,
+    private val onAppLongClick: (AppInfo) -> Unit,
+    private val onFocused: () -> Unit
+) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_app_card, parent, false)
+        return AppViewHolder(v)
+    }
+
+    override fun onBindViewHolder(holder: AppViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class AppViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val ivIcon: ImageView  = view.findViewById(R.id.ivAppIcon)
+        private val tvName: TextView   = view.findViewById(R.id.tvAppName)
+        private val cardRoot: View     = view.findViewById(R.id.cardRoot)
+
+        fun bind(app: AppInfo) {
+            ivIcon.setImageDrawable(app.icon)
+            tvName.text = app.label
+
+            cardRoot.setOnClickListener { onAppClick(app) }
+            cardRoot.setOnLongClickListener { onAppLongClick(app); true }
+
+            cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) onFocused()
+                val scale = if (hasFocus) 1.14f else 1f
+                v.animate()
+                    .scaleX(scale).scaleY(scale)
+                    .translationZ(if (hasFocus) 8f else 0f)
+                    .setDuration(130)
+                    .start()
+                tvName.visibility = if (hasFocus) View.VISIBLE else View.GONE
+            }
+            cardRoot.isFocusable = true
+            cardRoot.isFocusableInTouchMode = false
+        }
+    }
+
+    companion object {
+        val DIFF = object : DiffUtil.ItemCallback<AppInfo>() {
+            override fun areItemsTheSame(a: AppInfo, b: AppInfo) =
+                a.packageName == b.packageName
+            override fun areContentsTheSame(a: AppInfo, b: AppInfo) =
+                a.packageName == b.packageName && a.label == b.label
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/home/HomeActivity.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/home/HomeActivity.kt' << 'FILEOF'
+package com.shrine.launcher.ui.home
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.graphics.Color
+import android.os.Bundle
+import android.view.KeyEvent
+import android.view.View
+import android.widget.TextView
+import androidx.activity.viewModels
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.*
+import com.shrine.launcher.databinding.ActivityHomeBinding
+import com.shrine.launcher.ui.settings.SettingsActivity
+import com.shrine.launcher.ui.widgets.ContinueWatchingWidgetView
+import com.shrine.launcher.util.ThemeUtil
+import java.text.SimpleDateFormat
+import java.util.*
+
+class HomeActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityHomeBinding
+    private val vm: HomeViewModel by viewModels()
+
+    private lateinit var rowsAdapter: RowsAdapter
+    private var clockTimer: Timer? = null
+
+    private val packageReceiver = object : BroadcastReceiver() {
+        override fun onReceive(ctx: Context, intent: Intent) {
+            vm.loadAll()
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityHomeBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        setupRows()
+        setupClock()
+        setupObservers()
+        setupButtons()
+        registerPackageReceiver()
+    }
+
+    // ── Rows RecyclerView ──────────────────────────────────────────────────────
+
+    private fun setupRows() {
+        rowsAdapter = RowsAdapter(
+            onAppClick    = { app -> vm.launchApp(app.packageName) },
+            onAppLongClick = { app -> showAppContextMenu(app) },
+            onRowFocused  = { rowTitle -> binding.tvFocusedRowLabel.text = rowTitle }
+        )
+        binding.rvRows.apply {
+            layoutManager = LinearLayoutManager(this@HomeActivity)
+            adapter = rowsAdapter
+            setHasFixedSize(false)
+        }
+    }
+
+    // ── Observers ──────────────────────────────────────────────────────────────
+
+    private fun setupObservers() {
+        vm.rows.observe(this) { rows -> rebuildRows(rows) }
+        vm.allApps.observe(this) { rebuildRows(vm.rows.value ?: emptyList()) }
+        vm.recentApps.observe(this) { rebuildRows(vm.rows.value ?: emptyList()) }
+        vm.favourites.observe(this) { rebuildRows(vm.rows.value ?: emptyList()) }
+
+        vm.widgets.observe(this) { widgets -> rebuildWidgets(widgets) }
+        vm.continueWatching.observe(this) { entries ->
+            updateContinueWatchingWidget(entries)
+        }
+
+        vm.theme.observe(this) { theme -> applyTheme(theme) }
+        vm.prefs.observe(this) { prefs -> applyClock(prefs) }
+    }
+
+    private fun rebuildRows(rows: List<LauncherRow>) {
+        val rowData = rows.map { row ->
+            RowItem(row = row, apps = vm.getAppsForRow(row))
+        }
+        rowsAdapter.submitList(rowData)
+    }
+
+    // ── Widgets area (pinned above rows) ───────────────────────────────────────
+
+    private fun rebuildWidgets(widgets: List<PinnedWidget>) {
+        binding.widgetContainer.removeAllViews()
+        widgets.sortedBy { it.position }.forEach { widget ->
+            when (widget.type) {
+                WidgetType.CONTINUE_WATCHING -> {
+                    val cwView = ContinueWatchingWidgetView(this)
+                    cwView.tag = "widget_cw"
+                    cwView.setEntries(vm.continueWatching.value ?: emptyList())
+                    cwView.setOnEntryClickListener { entry ->
+                        entry.deepLinkUri?.let { uri ->
+                            try {
+                                startActivity(Intent(Intent.ACTION_VIEW,
+                                    android.net.Uri.parse(uri))
+                                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                            } catch (e: Exception) {
+                                vm.launchApp(entry.packageName)
+                            }
+                        } ?: vm.launchApp(entry.packageName)
+                    }
+                    cwView.setOnEntryRemoveListener { entry ->
+                        vm.removeContinueWatching(entry.id)
+                    }
+                    binding.widgetContainer.addView(cwView)
+                }
+                WidgetType.CLOCK -> { /* handled by top bar clock */ }
+                else -> { /* future widget types */ }
+            }
+        }
+        binding.widgetContainer.visibility =
+            if (widgets.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    private fun updateContinueWatchingWidget(entries: List<ContinueWatchingEntry>) {
+        val cwView = binding.widgetContainer.findViewWithTag<ContinueWatchingWidgetView>("widget_cw")
+        cwView?.setEntries(entries)
+    }
+
+    // ── Clock ──────────────────────────────────────────────────────────────────
+
+    private fun setupClock() {
+        clockTimer = Timer()
+        clockTimer?.scheduleAtFixedRate(object : TimerTask() {
+            override fun run() {
+                runOnUiThread { updateClock() }
+            }
+        }, 0, 30_000)
+    }
+
+    private fun applyClock(prefs: LauncherPrefs) {
+        binding.tvClock.visibility = if (prefs.clockEnabled) View.VISIBLE else View.GONE
+        updateClock()
+    }
+
+    private fun updateClock() {
+        val prefs  = vm.prefs.value ?: return
+        val fmt    = if (prefs.clockFormat24h) "HH:mm" else "h:mm a"
+        val dateFmt = SimpleDateFormat("EEE, MMM d", Locale.getDefault())
+        val timeFmt = SimpleDateFormat(fmt, Locale.getDefault())
+        val now    = Date()
+        binding.tvClock.text    = timeFmt.format(now)
+        binding.tvDate.text     = dateFmt.format(now)
+    }
+
+    // ── Theme ──────────────────────────────────────────────────────────────────
+
+    private fun applyTheme(theme: LauncherTheme) {
+        ThemeUtil.applyToActivity(this, binding.root, theme)
+    }
+
+    // ── Buttons ────────────────────────────────────────────────────────────────
+
+    private fun setupButtons() {
+        binding.btnSettings.setOnClickListener {
+            startActivity(Intent(this, SettingsActivity::class.java))
+        }
+        binding.btnSettings.setOnFocusChangeListener { v, hasFocus ->
+            v.animate().scaleX(if (hasFocus) 1.15f else 1f)
+                .scaleY(if (hasFocus) 1.15f else 1f).setDuration(120).start()
+        }
+    }
+
+    // ── App context menu (long press) ──────────────────────────────────────────
+
+    private fun showAppContextMenu(app: AppInfo) {
+        val dialog = AppContextMenuDialog(this, app,
+            isFavourite = vm.favourites.value?.contains(app.packageName) == true,
+            onFavouriteToggle = { vm.toggleFavourite(app.packageName) },
+            onLaunch = { vm.launchApp(app.packageName) }
+        )
+        dialog.show()
+    }
+
+    // ── Package install/uninstall receiver ─────────────────────────────────────
+
+    private fun registerPackageReceiver() {
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(Intent.ACTION_PACKAGE_CHANGED)
+            addDataScheme("package")
+        }
+        registerReceiver(packageReceiver, filter)
+    }
+
+    // ── Key events (back button should NOT exit the launcher) ─────────────────
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            // On the home screen, back does nothing
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        vm.loadAll()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        clockTimer?.cancel()
+        try { unregisterReceiver(packageReceiver) } catch (e: Exception) { }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/home/HomeViewModel.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/home/HomeViewModel.kt' << 'FILEOF'
+package com.shrine.launcher.ui.home
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.viewModelScope
+import com.shrine.launcher.data.model.*
+import com.shrine.launcher.data.repository.AppRepository
+import com.shrine.launcher.data.repository.PreferencesRepository
+import kotlinx.coroutines.launch
+
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val appRepo  = AppRepository.getInstance(application)
+    private val prefRepo = PreferencesRepository.getInstance(application)
+
+    private val _allApps = MutableLiveData<List<AppInfo>>()
+    val allApps: LiveData<List<AppInfo>> = _allApps
+
+    private val _recentApps = MutableLiveData<List<AppInfo>>()
+    val recentApps: LiveData<List<AppInfo>> = _recentApps
+
+    private val _rows = MutableLiveData<List<LauncherRow>>()
+    val rows: LiveData<List<LauncherRow>> = _rows
+
+    private val _widgets = MutableLiveData<List<PinnedWidget>>()
+    val widgets: LiveData<List<PinnedWidget>> = _widgets
+
+    private val _continueWatching = MutableLiveData<List<ContinueWatchingEntry>>()
+    val continueWatching: LiveData<List<ContinueWatchingEntry>> = _continueWatching
+
+    private val _theme = MutableLiveData<LauncherTheme>()
+    val theme: LiveData<LauncherTheme> = _theme
+
+    private val _prefs = MutableLiveData<LauncherPrefs>()
+    val prefs: LiveData<LauncherPrefs> = _prefs
+
+    private val _favourites = MutableLiveData<List<String>>()
+    val favourites: LiveData<List<String>> = _favourites
+
+    init {
+        loadAll()
+    }
+
+    fun loadAll() {
+        viewModelScope.launch {
+            _allApps.value    = appRepo.getAllApps()
+            _recentApps.value = appRepo.getRecentlyUsed()
+        }
+        val p = prefRepo.loadPrefs()
+        _prefs.value           = p
+        _rows.value            = p.rows.filter { it.isVisible }
+        _widgets.value         = p.pinnedWidgets.sortedBy { it.position }
+        _theme.value           = p.theme
+        _continueWatching.value = prefRepo.loadContinueWatching()
+        _favourites.value      = prefRepo.loadFavourites()
+    }
+
+    fun launchApp(packageName: String) = appRepo.launchApp(packageName)
+
+    fun toggleFavourite(packageName: String) {
+        prefRepo.toggleFavourite(packageName)
+        _favourites.value = prefRepo.loadFavourites()
+    }
+
+    fun removeContinueWatching(id: String) {
+        prefRepo.removeContinueWatchingEntry(id)
+        _continueWatching.value = prefRepo.loadContinueWatching()
+    }
+
+    fun getAppsForRow(row: LauncherRow): List<AppInfo> {
+        return when (row.type) {
+            RowType.ALL_APPS         -> _allApps.value ?: emptyList()
+            RowType.RECENTLY_OPENED  -> _recentApps.value ?: emptyList()
+            RowType.FAVORITES        -> {
+                val favs = _favourites.value ?: emptyList()
+                (_allApps.value ?: emptyList()).filter { it.packageName in favs }
+                    .sortedBy { favs.indexOf(it.packageName) }
+            }
+            RowType.CUSTOM           -> {
+                val all = (_allApps.value ?: emptyList()).associateBy { it.packageName }
+                row.apps.mapNotNull { all[it] }
+            }
+            RowType.SUGGESTIONS      -> (_allApps.value ?: emptyList()).take(12)
+            RowType.CONTINUE_WATCHING -> emptyList() // handled separately via widget
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/home/RowsAdapter.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/home/RowsAdapter.kt' << 'FILEOF'
+package com.shrine.launcher.ui.home
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.AppInfo
+import com.shrine.launcher.data.model.LauncherRow
+
+data class RowItem(
+    val row: LauncherRow,
+    val apps: List<AppInfo>
+)
+
+class RowsAdapter(
+    private val onAppClick: (AppInfo) -> Unit,
+    private val onAppLongClick: (AppInfo) -> Unit,
+    private val onRowFocused: (String) -> Unit
+) : ListAdapter<RowItem, RowsAdapter.RowViewHolder>(DIFF) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RowViewHolder {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_row, parent, false)
+        return RowViewHolder(v)
+    }
+
+    override fun onBindViewHolder(holder: RowViewHolder, position: Int) {
+        holder.bind(getItem(position))
+    }
+
+    inner class RowViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val tvLabel: TextView        = view.findViewById(R.id.tvRowLabel)
+        private val rvApps: RecyclerView     = view.findViewById(R.id.rvApps)
+
+        fun bind(item: RowItem) {
+            tvLabel.text = item.row.title
+            tvLabel.visibility = if (item.row.title.isBlank()) View.GONE else View.VISIBLE
+
+            val appsAdapter = AppsAdapter(
+                onAppClick     = onAppClick,
+                onAppLongClick = onAppLongClick,
+                onFocused      = { onRowFocused(item.row.title) }
+            )
+            rvApps.apply {
+                layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+                adapter = appsAdapter
+                setHasFixedSize(true)
+            }
+            appsAdapter.submitList(item.apps)
+        }
+    }
+
+    companion object {
+        val DIFF = object : DiffUtil.ItemCallback<RowItem>() {
+            override fun areItemsTheSame(a: RowItem, b: RowItem) = a.row.id == b.row.id
+            override fun areContentsTheSame(a: RowItem, b: RowItem) =
+                a.row == b.row && a.apps == b.apps
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/AppPickerActivity.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/AppPickerActivity.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.app.Activity
+import android.content.Intent
+import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.AppInfo
+import com.shrine.launcher.data.repository.AppRepository
+import com.shrine.launcher.databinding.ActivityAppPickerBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class AppPickerActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityAppPickerBinding
+    private var allApps: List<AppInfo> = emptyList()
+    private lateinit var adapter: PickerAdapter
+
+    companion object {
+        const val RESULT_PACKAGE = "result_package"
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityAppPickerBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        adapter = PickerAdapter { app ->
+            val result = Intent().putExtra(RESULT_PACKAGE, app.packageName)
+            setResult(Activity.RESULT_OK, result)
+            finish()
+        }
+
+        binding.rvPickerApps.apply {
+            layoutManager = LinearLayoutManager(this@AppPickerActivity)
+            adapter = this@AppPickerActivity.adapter
+        }
+
+        binding.etSearch.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                filterApps(s.toString())
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
+
+        binding.btnBack.setOnClickListener { finish() }
+
+        loadApps()
+    }
+
+    private fun loadApps() {
+        CoroutineScope(Dispatchers.Main).launch {
+            allApps = withContext(Dispatchers.IO) {
+                AppRepository.getInstance(this@AppPickerActivity).getAllApps()
+            }
+            adapter.setApps(allApps)
+        }
+    }
+
+    private fun filterApps(query: String) {
+        val filtered = if (query.isBlank()) allApps
+        else allApps.filter { it.label.contains(query, ignoreCase = true) }
+        adapter.setApps(filtered)
+    }
+}
+
+class PickerAdapter(
+    private val onPick: (AppInfo) -> Unit
+) : RecyclerView.Adapter<PickerAdapter.VH>() {
+
+    private var apps: List<AppInfo> = emptyList()
+
+    fun setApps(list: List<AppInfo>) {
+        apps = list
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_picker_app, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) = holder.bind(apps[position])
+    override fun getItemCount() = apps.size
+
+    inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        private val ivIcon: ImageView = view.findViewById(R.id.ivPickerIcon)
+        private val tvName: TextView  = view.findViewById(R.id.tvPickerName)
+
+        fun bind(app: AppInfo) {
+            ivIcon.setImageDrawable(app.icon)
+            tvName.text = app.label
+            itemView.setOnClickListener { onPick(app) }
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/RowAppsEditAdapter.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/RowAppsEditAdapter.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.ImageView
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.repository.AppRepository
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+
+class RowAppsEditAdapter(
+    private val packages: List<String>,
+    private val appRepo: AppRepository,
+    private val onRemove: (String) -> Unit
+) : RecyclerView.Adapter<RowAppsEditAdapter.VH>() {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_row_app_edit, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) =
+        holder.bind(packages[position])
+
+    override fun getItemCount() = packages.size
+
+    inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        private val ivIcon:  ImageView  = view.findViewById(R.id.ivEditAppIcon)
+        private val tvName:  TextView   = view.findViewById(R.id.tvEditAppName)
+        private val btnDel:  ImageButton = view.findViewById(R.id.btnRemoveAppFromRow)
+
+        fun bind(pkg: String) {
+            CoroutineScope(Dispatchers.Main).launch {
+                val info = withContext(Dispatchers.IO) { appRepo.getAppInfo(pkg) }
+                tvName.text = info?.label ?: pkg
+                ivIcon.setImageDrawable(info?.icon)
+            }
+            btnDel.setOnClickListener { onRemove(pkg) }
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/RowEditorActivity.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/RowEditorActivity.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.content.Intent
+import android.os.Bundle
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.repository.AppRepository
+import com.shrine.launcher.data.repository.PreferencesRepository
+import com.shrine.launcher.databinding.ActivityRowEditorBinding
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Collections
+
+class RowEditorActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivityRowEditorBinding
+    private lateinit var repo: PreferencesRepository
+    private lateinit var appRepo: AppRepository
+    private var rowId: String = ""
+    private val appsInRow = mutableListOf<String>()
+
+    companion object {
+        const val EXTRA_ROW_ID = "extra_row_id"
+        const val REQUEST_PICK_APP = 100
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivityRowEditorBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+
+        repo    = PreferencesRepository.getInstance(this)
+        appRepo = AppRepository.getInstance(this)
+        rowId   = intent.getStringExtra(EXTRA_ROW_ID) ?: run { finish(); return }
+
+        val row = repo.loadRows().find { it.id == rowId } ?: run { finish(); return }
+
+        binding.etRowTitle.setText(row.title)
+        appsInRow.addAll(row.apps)
+        setupAppList()
+
+        binding.btnAddAppToRow.setOnClickListener {
+            startActivityForResult(
+                Intent(this, AppPickerActivity::class.java), REQUEST_PICK_APP
+            )
+        }
+
+        binding.btnSaveRow.setOnClickListener {
+            val updatedTitle = binding.etRowTitle.text.toString().ifBlank { row.title }
+            repo.updateRow(row.copy(title = updatedTitle, apps = appsInRow))
+            Toast.makeText(this, "Row saved", Toast.LENGTH_SHORT).show()
+            finish()
+        }
+
+        binding.btnBack.setOnClickListener { finish() }
+    }
+
+    private fun setupAppList() {
+        val adapter = RowAppsEditAdapter(appsInRow, appRepo) { pkg ->
+            appsInRow.remove(pkg)
+            setupAppList()
+        }
+        binding.rvRowApps.layoutManager = LinearLayoutManager(this)
+        binding.rvRowApps.adapter       = adapter
+
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder,
+                                target: RecyclerView.ViewHolder): Boolean {
+                Collections.swap(appsInRow, vh.adapterPosition, target.adapterPosition)
+                adapter.notifyItemMoved(vh.adapterPosition, target.adapterPosition)
+                return true
+            }
+            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {}
+        })
+        touchHelper.attachToRecyclerView(binding.rvRowApps)
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_PICK_APP && resultCode == RESULT_OK) {
+            val pkg = data?.getStringExtra(AppPickerActivity.RESULT_PACKAGE) ?: return
+            if (!appsInRow.contains(pkg)) {
+                appsInRow.add(pkg)
+                setupAppList()
+            }
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/RowsListAdapter.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/RowsListAdapter.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.LauncherRow
+
+class RowsListAdapter(
+    private val onEdit: (LauncherRow) -> Unit,
+    private val onDelete: (LauncherRow) -> Unit,
+    private val onVisibilityToggle: (LauncherRow) -> Unit
+) : RecyclerView.Adapter<RowsListAdapter.VH>() {
+
+    var currentRows: List<LauncherRow> = emptyList()
+        private set
+
+    fun setRows(rows: List<LauncherRow>) {
+        currentRows = rows
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_settings_row, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) =
+        holder.bind(currentRows[position])
+
+    override fun getItemCount() = currentRows.size
+
+    inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        private val tvName:   TextView    = view.findViewById(R.id.tvSettingsRowName)
+        private val tvType:   TextView    = view.findViewById(R.id.tvSettingsRowType)
+        private val btnEdit:  ImageButton = view.findViewById(R.id.btnEditRow)
+        private val btnDel:   ImageButton = view.findViewById(R.id.btnDeleteRow)
+        private val btnVis:   ImageButton = view.findViewById(R.id.btnToggleVisibility)
+
+        fun bind(row: LauncherRow) {
+            tvName.text = row.title
+            tvType.text = row.type.name.replace('"'"'_'"'"', '"'"' '"'"')
+            btnVis.setImageResource(
+                if (row.isVisible) R.drawable.ic_visibility_on
+                else R.drawable.ic_visibility_off
+            )
+            btnEdit.setOnClickListener  { onEdit(row) }
+            btnDel.setOnClickListener   { onDelete(row) }
+            btnVis.setOnClickListener   { onVisibilityToggle(row) }
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/SettingsActivity.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/SettingsActivity.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.content.Intent
+import android.os.Bundle
+import android.view.View
+import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.ItemTouchHelper
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.*
+import com.shrine.launcher.data.repository.PreferencesRepository
+import com.shrine.launcher.databinding.ActivitySettingsBinding
+import java.util.Collections
+import java.util.UUID
+
+class SettingsActivity : AppCompatActivity() {
+
+    private lateinit var binding: ActivitySettingsBinding
+    private lateinit var repo: PreferencesRepository
+    private lateinit var rowsListAdapter: RowsListAdapter
+    private lateinit var widgetsListAdapter: WidgetsListAdapter
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        binding = ActivitySettingsBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        repo = PreferencesRepository.getInstance(this)
+
+        setupRowsManager()
+        setupWidgetsManager()
+        setupThemeSettings()
+        setupAppearanceSettings()
+        setupClockSettings()
+
+        binding.btnBack.setOnClickListener { finish() }
+    }
+
+    // ── Rows ───────────────────────────────────────────────────────────────────
+
+    private fun setupRowsManager() {
+        rowsListAdapter = RowsListAdapter(
+            onEdit   = { row -> openRowEditor(row) },
+            onDelete = { row ->
+                repo.removeRow(row.id)
+                reloadRows()
+            },
+            onVisibilityToggle = { row ->
+                repo.updateRow(row.copy(isVisible = !row.isVisible))
+                reloadRows()
+            }
+        )
+        binding.rvRows.apply {
+            layoutManager = LinearLayoutManager(this@SettingsActivity)
+            adapter = rowsListAdapter
+        }
+
+        // Drag-to-reorder
+        val touchHelper = ItemTouchHelper(object : ItemTouchHelper.SimpleCallback(
+            ItemTouchHelper.UP or ItemTouchHelper.DOWN, 0
+        ) {
+            override fun onMove(rv: RecyclerView, vh: RecyclerView.ViewHolder,
+                                target: RecyclerView.ViewHolder): Boolean {
+                val from = vh.adapterPosition
+                val to   = target.adapterPosition
+                val rows = rowsListAdapter.currentRows.toMutableList()
+                Collections.swap(rows, from, to)
+                repo.saveRows(rows)
+                rowsListAdapter.setRows(rows)
+                return true
+            }
+            override fun onSwiped(vh: RecyclerView.ViewHolder, dir: Int) {}
+        })
+        touchHelper.attachToRecyclerView(binding.rvRows)
+
+        binding.btnAddRow.setOnClickListener { showAddRowDialog() }
+        reloadRows()
+    }
+
+    private fun reloadRows() {
+        rowsListAdapter.setRows(repo.loadRows())
+    }
+
+    private fun openRowEditor(row: LauncherRow) {
+        val intent = Intent(this, RowEditorActivity::class.java)
+        intent.putExtra(RowEditorActivity.EXTRA_ROW_ID, row.id)
+        startActivity(intent)
+    }
+
+    private fun showAddRowDialog() {
+        val types = RowType.values()
+        val labels = types.map { it.name.replace('"'"'_'"'"', '"'"' '"'"') }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Add Row")
+            .setItems(labels) { _, which ->
+                val type = types[which]
+                val newRow = LauncherRow(
+                    id    = UUID.randomUUID().toString(),
+                    title = labels[which],
+                    type  = type
+                )
+                repo.addRow(newRow)
+                reloadRows()
+            }
+            .show()
+    }
+
+    // ── Widgets ────────────────────────────────────────────────────────────────
+
+    private fun setupWidgetsManager() {
+        widgetsListAdapter = WidgetsListAdapter(
+            onRemove = { widget ->
+                repo.removeWidget(widget.id)
+                reloadWidgets()
+            }
+        )
+        binding.rvWidgets.apply {
+            layoutManager = LinearLayoutManager(this@SettingsActivity)
+            adapter = widgetsListAdapter
+        }
+
+        binding.btnAddWidget.setOnClickListener { showAddWidgetDialog() }
+        reloadWidgets()
+    }
+
+    private fun reloadWidgets() {
+        widgetsListAdapter.setWidgets(repo.loadWidgets())
+    }
+
+    private fun showAddWidgetDialog() {
+        val types  = WidgetType.values()
+        val labels = types.map { it.name.replace('"'"'_'"'"', '"'"' '"'"') }.toTypedArray()
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Pin Widget")
+            .setItems(labels) { _, which ->
+                repo.addWidget(types[which], labels[which])
+                reloadWidgets()
+            }
+            .show()
+    }
+
+    // ── Theme ──────────────────────────────────────────────────────────────────
+
+    private fun setupThemeSettings() {
+        val prefs = repo.loadPrefs()
+        val theme = prefs.theme
+
+        binding.etAccentColor.setText(theme.accentColorHex)
+        binding.etBgColor.setText(theme.backgroundColorHex)
+        binding.switchDynamicColor.isChecked = theme.useDynamicColor
+        binding.sbBackgroundDim.progress     = theme.backgroundDim
+        binding.sbBackgroundBlur.progress    = theme.backgroundBlur
+
+        binding.btnSaveTheme.setOnClickListener {
+            val updated = theme.copy(
+                accentColorHex      = binding.etAccentColor.text.toString().ifBlank { theme.accentColorHex },
+                backgroundColorHex  = binding.etBgColor.text.toString().ifBlank { theme.backgroundColorHex },
+                useDynamicColor     = binding.switchDynamicColor.isChecked,
+                backgroundDim       = binding.sbBackgroundDim.progress,
+                backgroundBlur      = binding.sbBackgroundBlur.progress
+            )
+            repo.saveTheme(updated)
+            Toast.makeText(this, "Theme saved", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ── Appearance ─────────────────────────────────────────────────────────────
+
+    private fun setupAppearanceSettings() {
+        val prefs = repo.loadPrefs()
+
+        binding.sbIconSize.progress         = prefs.iconSize - 48   // range 48-144
+        binding.switchFocusScale.isChecked  = prefs.focusScaleEnabled
+        binding.switchAnimations.isChecked  = prefs.animationsEnabled
+
+        val cardStyles = arrayOf("ROUNDED", "SQUARE", "CIRCLE")
+        binding.spinnerCardStyle.adapter    = ArrayAdapter(this,
+            android.R.layout.simple_spinner_item, cardStyles)
+        binding.spinnerCardStyle.setSelection(cardStyles.indexOf(prefs.cardStyle).coerceAtLeast(0))
+
+        val rowLabelStyles = arrayOf("ABOVE", "INLINE", "HIDDEN")
+        binding.spinnerRowLabelStyle.adapter = ArrayAdapter(this,
+            android.R.layout.simple_spinner_item, rowLabelStyles)
+        binding.spinnerRowLabelStyle.setSelection(
+            rowLabelStyles.indexOf(prefs.rowLabelStyle).coerceAtLeast(0))
+
+        binding.btnSaveAppearance.setOnClickListener {
+            val updated = prefs.copy(
+                iconSize          = binding.sbIconSize.progress + 48,
+                focusScaleEnabled = binding.switchFocusScale.isChecked,
+                animationsEnabled = binding.switchAnimations.isChecked,
+                cardStyle         = cardStyles[binding.spinnerCardStyle.selectedItemPosition],
+                rowLabelStyle     = rowLabelStyles[binding.spinnerRowLabelStyle.selectedItemPosition]
+            )
+            repo.savePrefs(updated)
+            Toast.makeText(this, "Appearance saved", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // ── Clock ──────────────────────────────────────────────────────────────────
+
+    private fun setupClockSettings() {
+        val prefs = repo.loadPrefs()
+        binding.switchClock.isChecked   = prefs.clockEnabled
+        binding.switch24h.isChecked     = prefs.clockFormat24h
+
+        binding.btnSaveClock.setOnClickListener {
+            repo.savePrefs(prefs.copy(
+                clockEnabled   = binding.switchClock.isChecked,
+                clockFormat24h = binding.switch24h.isChecked
+            ))
+            Toast.makeText(this, "Clock settings saved", Toast.LENGTH_SHORT).show()
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/settings/WidgetsListAdapter.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/settings/WidgetsListAdapter.kt' << 'FILEOF'
+package com.shrine.launcher.ui.settings
+
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.ImageButton
+import android.widget.TextView
+import androidx.recyclerview.widget.RecyclerView
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.PinnedWidget
+
+class WidgetsListAdapter(
+    private val onRemove: (PinnedWidget) -> Unit
+) : RecyclerView.Adapter<WidgetsListAdapter.VH>() {
+
+    private var widgets: List<PinnedWidget> = emptyList()
+
+    fun setWidgets(list: List<PinnedWidget>) {
+        widgets = list
+        notifyDataSetChanged()
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_settings_widget, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) =
+        holder.bind(widgets[position])
+
+    override fun getItemCount() = widgets.size
+
+    inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        private val tvName: TextView    = view.findViewById(R.id.tvWidgetName)
+        private val tvType: TextView    = view.findViewById(R.id.tvWidgetType)
+        private val btnDel: ImageButton = view.findViewById(R.id.btnRemoveWidget)
+
+        fun bind(widget: PinnedWidget) {
+            tvName.text = widget.title
+            tvType.text = widget.type.name.replace('"'"'_'"'"', '"'"' '"'"')
+            btnDel.setOnClickListener { onRemove(widget) }
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/ui/widgets/ContinueWatchingWidgetView.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/ui/widgets/ContinueWatchingWidgetView.kt' << 'FILEOF'
+package com.shrine.launcher.ui.widgets
+
+import android.content.Context
+import android.util.AttributeSet
+import android.view.LayoutInflater
+import android.view.View
+import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.ImageView
+import android.widget.ProgressBar
+import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.ListAdapter
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.shrine.launcher.R
+import com.shrine.launcher.data.model.ContinueWatchingEntry
+
+class ContinueWatchingWidgetView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : FrameLayout(context, attrs) {
+
+    private val rvEntries: RecyclerView
+    private val tvTitle: TextView
+    private var onEntryClick: ((ContinueWatchingEntry) -> Unit)? = null
+    private var onEntryRemove: ((ContinueWatchingEntry) -> Unit)? = null
+
+    private val adapter = ContinueWatchingAdapter(
+        onClick  = { entry -> onEntryClick?.invoke(entry) },
+        onRemove = { entry -> onEntryRemove?.invoke(entry) }
+    )
+
+    init {
+        LayoutInflater.from(context).inflate(R.layout.widget_continue_watching, this, true)
+        tvTitle   = findViewById(R.id.tvContinueWatchingTitle)
+        rvEntries = findViewById(R.id.rvContinueWatching)
+        rvEntries.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
+        rvEntries.adapter = adapter
+    }
+
+    fun setEntries(entries: List<ContinueWatchingEntry>) {
+        adapter.submitList(entries)
+        visibility = if (entries.isEmpty()) View.GONE else View.VISIBLE
+    }
+
+    fun setOnEntryClickListener(listener: (ContinueWatchingEntry) -> Unit) {
+        onEntryClick = listener
+    }
+
+    fun setOnEntryRemoveListener(listener: (ContinueWatchingEntry) -> Unit) {
+        onEntryRemove = listener
+    }
+}
+
+// ── Adapter ───────────────────────────────────────────────────────────────────
+
+class ContinueWatchingAdapter(
+    private val onClick: (ContinueWatchingEntry) -> Unit,
+    private val onRemove: (ContinueWatchingEntry) -> Unit
+) : ListAdapter<ContinueWatchingEntry, ContinueWatchingAdapter.VH>(DIFF) {
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
+        val v = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_continue_watching_card, parent, false)
+        return VH(v)
+    }
+
+    override fun onBindViewHolder(holder: VH, position: Int) =
+        holder.bind(getItem(position))
+
+    inner class VH(view: View) : RecyclerView.ViewHolder(view) {
+        private val ivArtwork:  ImageView  = view.findViewById(R.id.ivCwArtwork)
+        private val tvTitle:    TextView   = view.findViewById(R.id.tvCwTitle)
+        private val tvSubtitle: TextView   = view.findViewById(R.id.tvCwSubtitle)
+        private val progressBar: ProgressBar = view.findViewById(R.id.pbCwProgress)
+        private val btnRemove:  View       = view.findViewById(R.id.btnCwRemove)
+        private val cardRoot:   View       = view.findViewById(R.id.cwCardRoot)
+
+        fun bind(entry: ContinueWatchingEntry) {
+            tvTitle.text    = entry.title
+            tvSubtitle.text = entry.subtitle
+            progressBar.progress = entry.progressPercent
+            progressBar.visibility = if (entry.durationMs > 0) View.VISIBLE else View.GONE
+
+            if (!entry.artworkUri.isNullOrBlank()) {
+                Glide.with(ivArtwork)
+                    .load(entry.artworkUri)
+                    .centerCrop()
+                    .placeholder(R.drawable.bg_card_placeholder)
+                    .into(ivArtwork)
+            } else {
+                ivArtwork.setImageResource(R.drawable.bg_card_placeholder)
+            }
+
+            cardRoot.setOnClickListener { onClick(entry) }
+            cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+                val scale = if (hasFocus) 1.1f else 1f
+                v.animate().scaleX(scale).scaleY(scale)
+                    .translationZ(if (hasFocus) 8f else 0f)
+                    .setDuration(120).start()
+                btnRemove.visibility = if (hasFocus) View.VISIBLE else View.GONE
+            }
+            cardRoot.isFocusable = true
+
+            btnRemove.setOnClickListener { onRemove(entry) }
+        }
+    }
+
+    companion object {
+        val DIFF = object : DiffUtil.ItemCallback<ContinueWatchingEntry>() {
+            override fun areItemsTheSame(a: ContinueWatchingEntry, b: ContinueWatchingEntry) =
+                a.id == b.id
+            override fun areContentsTheSame(a: ContinueWatchingEntry, b: ContinueWatchingEntry) =
+                a == b
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/util/BootReceiver.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/util/BootReceiver.kt' << 'FILEOF'
+package com.shrine.launcher.util
+
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import com.shrine.launcher.ui.home.HomeActivity
+
+class BootReceiver : BroadcastReceiver() {
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            val launch = Intent(context, HomeActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(launch)
+        }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/java/com/shrine/launcher/util/ThemeUtil.kt')"
+  cat > 'app/src/main/java/com/shrine/launcher/util/ThemeUtil.kt' << 'FILEOF'
+package com.shrine.launcher.util
+
+import android.app.Activity
+import android.graphics.Color
+import android.view.View
+import com.shrine.launcher.data.model.LauncherTheme
+
+object ThemeUtil {
+
+    fun applyToActivity(activity: Activity, rootView: View, theme: LauncherTheme) {
+        try {
+            val bgColor = Color.parseColor(theme.backgroundColorHex)
+            rootView.setBackgroundColor(bgColor)
+            activity.window.statusBarColor   = bgColor
+            activity.window.navigationBarColor = bgColor
+        } catch (e: IllegalArgumentException) {
+            // keep existing colour if parse fails
+        }
+    }
+
+    fun parseColorSafe(hex: String, fallback: Int = Color.BLACK): Int {
+        return try { Color.parseColor(hex) } catch (e: Exception) { fallback }
+    }
+}
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_app_card.xml')"
+  cat > 'app/src/main/res/drawable/bg_app_card.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<!-- bg_app_card.xml -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1E1E1E" />
+    <corners android:radius="12dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_btn_primary.xml')"
+  cat > 'app/src/main/res/drawable/bg_btn_primary.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@color/accent" />
+    <corners android:radius="8dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_btn_secondary.xml')"
+  cat > 'app/src/main/res/drawable/bg_btn_secondary.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <stroke android:width="1dp" android:color="@color/accent" />
+    <corners android:radius="8dp" />
+    <solid android:color="#00000000" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_card_placeholder.xml')"
+  cat > 'app/src/main/res/drawable/bg_card_placeholder.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#2A2A2A" />
+    <corners android:radius="8dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_cw_card.xml')"
+  cat > 'app/src/main/res/drawable/bg_cw_card.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#1E1E1E" />
+    <corners android:radius="10dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_dialog.xml')"
+  cat > 'app/src/main/res/drawable/bg_dialog.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1E1E1E" />
+    <corners android:radius="16dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_icon_btn.xml')"
+  cat > 'app/src/main/res/drawable/bg_icon_btn.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#22FFFFFF" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_input.xml')"
+  cat > 'app/src/main/res/drawable/bg_input.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="#1E1E1E" />
+    <stroke android:width="1dp" android:color="#333333" />
+    <corners android:radius="6dp" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/bg_remove_btn.xml')"
+  cat > 'app/src/main/res/drawable/bg_remove_btn.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+    <solid android:color="#AA000000" />
+</shape>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_arrow_back.xml')"
+  cat > 'app/src/main/res/drawable/ic_arrow_back.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M20,11H7.83l5.59,-5.59L12,4l-8,8 8,8 1.41,-1.41L7.83,13H20v-2z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_close.xml')"
+  cat > 'app/src/main/res/drawable/ic_close.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M19,6.41L17.59,5 12,10.59 6.41,5 5,6.41 10.59,12 5,17.59 6.41,19 12,13.41 17.59,19 19,17.59 13.41,12z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_delete.xml')"
+  cat > 'app/src/main/res/drawable/ic_delete.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M6,19c0,1.1 0.9,2 2,2h8c1.1,0 2,-0.9 2,-2V7H6v12zM19,4h-3.5l-1,-1h-5l-1,1H5v2h14V4z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_edit.xml')"
+  cat > 'app/src/main/res/drawable/ic_edit.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_settings.xml')"
+  cat > 'app/src/main/res/drawable/ic_settings.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M19.14,12.94c0.04,-0.3 0.06,-0.61 0.06,-0.94c0,-0.32 -0.02,-0.64 -0.07,-0.94l2.03,-1.58c0.18,-0.14 0.23,-0.41 0.12,-0.61l-1.92,-3.32c-0.12,-0.22 -0.37,-0.29 -0.59,-0.22l-2.39,0.96c-0.5,-0.38 -1.03,-0.7 -1.62,-0.94L14.4,2.81c-0.04,-0.24 -0.24,-0.41 -0.48,-0.41h-3.84c-0.24,0 -0.43,0.17 -0.47,0.41L9.25,5.35C8.66,5.59 8.12,5.92 7.63,6.29L5.24,5.33c-0.22,-0.08 -0.47,0 -0.59,0.22L2.74,8.87C2.62,9.08 2.66,9.34 2.86,9.48l2.03,1.58C4.84,11.36 4.8,11.69 4.8,12s0.02,0.64 0.07,0.94l-2.03,1.58c-0.18,0.14 -0.23,0.41 -0.12,0.61l1.92,3.32c0.12,0.22 0.37,0.29 0.59,0.22l2.39,-0.96c0.5,0.38 1.03,0.7 1.62,0.94l0.36,2.54c0.05,0.24 0.24,0.41 0.48,0.41h3.84c0.24,0 0.44,-0.17 0.47,-0.41l0.36,-2.54c0.59,-0.24 1.13,-0.56 1.62,-0.94l2.39,0.96c0.22,0.08 0.47,0 0.59,-0.22l1.92,-3.32c0.12,-0.22 0.07,-0.47 -0.12,-0.61L19.14,12.94zM12,15.6c-1.98,0 -3.6,-1.62 -3.6,-3.6s1.62,-3.6 3.6,-3.6s3.6,1.62 3.6,3.6S13.98,15.6 12,15.6z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_visibility_off.xml')"
+  cat > 'app/src/main/res/drawable/ic_visibility_off.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M12,7c2.76,0 5,2.24 5,5 0,0.65 -0.13,1.26 -0.36,1.83l2.92,2.92c1.51,-1.26 2.7,-2.89 3.43,-4.75 -1.73,-4.39 -6,-7.5 -11,-7.5 -1.4,0 -2.74,0.25 -3.98,0.7l2.16,2.16C10.74,7.13 11.35,7 12,7zM2,4.27l2.28,2.28 0.46,0.46C3.08,8.3 1.78,10.02 1,12c1.73,4.39 6,7.5 11,7.5 1.55,0 3.03,-0.3 4.38,-0.84l0.42,0.42L19.73,22 21,20.73 3.27,3 2,4.27zM7.53,9.8l1.55,1.55c-0.05,0.21 -0.08,0.43 -0.08,0.65 0,1.66 1.34,3 3,3 0.22,0 0.44,-0.03 0.65,-0.08l1.55,1.55c-0.67,0.33 -1.41,0.53 -2.2,0.53 -2.76,0 -5,-2.24 -5,-5 0,-0.79 0.2,-1.53 0.53,-2.2zM11.84,9.02l3.15,3.15 0.02,-0.16c0,-1.66 -1.34,-3 -3,-3l-0.17,0.01z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/ic_visibility_on.xml')"
+  cat > 'app/src/main/res/drawable/ic_visibility_on.xml' << 'FILEOF'
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFF" android:pathData="M12,4.5C7,4.5 2.73,7.61 1,12c1.73,4.39 6,7.5 11,7.5s9.27,-3.11 11,-7.5c-1.73,-4.39 -6,-7.5 -11,-7.5zM12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5zM12,9c-1.66,0 -3,1.34 -3,3s1.34,3 3,3 3,-1.34 3,-3 -1.34,-3 -3,-3z"/>
+</vector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/drawable/selector_focus_ring.xml')"
+  cat > 'app/src/main/res/drawable/selector_focus_ring.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<selector xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:state_focused="true">
+        <shape android:shape="rectangle">
+            <stroke android:width="2dp" android:color="@color/focus_ring" />
+            <corners android:radius="10dp" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+    <item>
+        <shape android:shape="rectangle">
+            <stroke android:width="0dp" android:color="#00000000" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+</selector>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/activity_app_picker.xml')"
+  cat > 'app/src/main/res/layout/activity_app_picker.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="16dp">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_arrow_back"
+            android:background="@drawable/bg_icon_btn"
+            android:tint="@color/text_primary"
+            android:contentDescription="Back"
+            android:focusable="true" />
+
+        <EditText
+            android:id="@+id/etSearch"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:hint="Search apps…"
+            android:background="@drawable/bg_input"
+            android:textColor="@color/text_primary"
+            android:textColorHint="@color/text_secondary"
+            android:padding="10dp" />
+    </LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvPickerApps"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/activity_home.xml')"
+  cat > 'app/src/main/res/layout/activity_home.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootLayout"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+
+    <!-- Top Bar -->
+    <LinearLayout
+        android:id="@+id/topBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="32dp"
+        android:paddingTop="16dp"
+        android:paddingBottom="8dp"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <!-- Shrine wordmark -->
+        <TextView
+            android:id="@+id/tvBrandName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="SHRINE"
+            android:textColor="@color/accent"
+            android:textSize="22sp"
+            android:fontFamily="sans-serif-condensed"
+            android:letterSpacing="0.18"
+            android:textStyle="bold" />
+
+        <!-- Clock -->
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="end"
+            android:layout_marginEnd="16dp">
+
+            <TextView
+                android:id="@+id/tvClock"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="12:00"
+                android:textColor="@color/text_primary"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:fontFamily="sans-serif-light" />
+
+            <TextView
+                android:id="@+id/tvDate"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Mon, Jan 1"
+                android:textColor="@color/text_secondary"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <!-- Settings gear -->
+        <ImageButton
+            android:id="@+id/btnSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_settings"
+            android:background="@drawable/bg_icon_btn"
+            android:contentDescription="Settings"
+            android:focusable="true"
+            android:tint="@color/text_secondary" />
+    </LinearLayout>
+
+    <!-- Focused row label -->
+    <TextView
+        android:id="@+id/tvFocusedRowLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/text_secondary"
+        android:textSize="11sp"
+        android:letterSpacing="0.12"
+        android:text=""
+        app:layout_constraintTop_toBottomOf="@id/topBar"
+        app:layout_constraintStart_toStartOf="parent"/>
+
+    <!-- Scrollable content (widgets + rows) -->
+    <ScrollView
+        android:id="@+id/mainScroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
+        android:scrollbars="none"
+        app:layout_constraintTop_toBottomOf="@id/tvFocusedRowLabel"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingBottom="32dp">
+
+            <!-- Pinned widgets container (Continue Watching etc) -->
+            <LinearLayout
+                android:id="@+id/widgetContainer"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone" />
+
+            <!-- App rows -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvRows"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:overScrollMode="never" />
+
+        </LinearLayout>
+    </ScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/activity_row_editor.xml')"
+  cat > 'app/src/main/res/layout/activity_row_editor.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="@color/bg_dark"
+    android:padding="24dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="20dp">
+
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_arrow_back"
+            android:background="@drawable/bg_icon_btn"
+            android:tint="@color/text_primary"
+            android:contentDescription="Back"
+            android:focusable="true" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="12dp"
+            android:text="Edit Row"
+            android:textColor="@color/text_primary"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Row Title"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:layout_marginBottom="4dp" />
+
+    <EditText
+        android:id="@+id/etRowTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_input"
+        android:textColor="@color/text_primary"
+        android:padding="12dp"
+        android:layout_marginBottom="20dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Apps in this Row"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:layout_marginBottom="8dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvRowApps"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1" />
+
+    <Button
+        android:id="@+id/btnAddAppToRow"
+        style="@style/SecondaryButton"
+        android:layout_marginTop="12dp"
+        android:text="+ Add App" />
+
+    <Button
+        android:id="@+id/btnSaveRow"
+        style="@style/PrimaryButton"
+        android:layout_marginTop="8dp"
+        android:text="Save Row" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/activity_settings.xml')"
+  cat > 'app/src/main/res/layout/activity_settings.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@drawable/ic_arrow_back"
+                android:background="@drawable/bg_icon_btn"
+                android:tint="@color/text_primary"
+                android:contentDescription="Back"
+                android:focusable="true" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="12dp"
+                android:text="Settings"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- ── ROWS SECTION ──────────────────────────────────── -->
+        <TextView style="@style/SectionHeader" android:text="Home Screen Rows" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvRows"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <Button
+            android:id="@+id/btnAddRow"
+            style="@style/SecondaryButton"
+            android:layout_marginTop="8dp"
+            android:text="+ Add Row" />
+
+        <View style="@style/Divider" />
+
+        <!-- ── WIDGETS SECTION ──────────────────────────────── -->
+        <TextView style="@style/SectionHeader" android:text="Pinned Widgets" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Widgets appear above your rows (e.g. Continue Watching)"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvWidgets"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:nestedScrollingEnabled="false" />
+
+        <Button
+            android:id="@+id/btnAddWidget"
+            style="@style/SecondaryButton"
+            android:layout_marginTop="8dp"
+            android:text="+ Pin Widget" />
+
+        <View style="@style/Divider" />
+
+        <!-- ── THEME SECTION ────────────────────────────────── -->
+        <TextView style="@style/SectionHeader" android:text="Theme" />
+
+        <TextView style="@style/FieldLabel" android:text="Accent Colour (hex)" />
+        <EditText
+            android:id="@+id/etAccentColor"
+            style="@style/SettingsInput"
+            android:hint="#E040FB" />
+
+        <TextView style="@style/FieldLabel" android:text="Background Colour (hex)" />
+        <EditText
+            android:id="@+id/etBgColor"
+            style="@style/SettingsInput"
+            android:hint="#0D0D0D" />
+
+        <LinearLayout style="@style/SwitchRow">
+            <TextView style="@style/SwitchLabel" android:text="Dynamic Colour" />
+            <Switch android:id="@+id/switchDynamicColor"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView style="@style/FieldLabel" android:text="Background Dim (0-100)" />
+        <SeekBar android:id="@+id/sbBackgroundDim"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:max="100" android:layout_marginBottom="8dp" />
+
+        <TextView style="@style/FieldLabel" android:text="Background Blur (0-25)" />
+        <SeekBar android:id="@+id/sbBackgroundBlur"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:max="25" android:layout_marginBottom="12dp" />
+
+        <Button android:id="@+id/btnSaveTheme" style="@style/PrimaryButton" android:text="Save Theme" />
+
+        <View style="@style/Divider" />
+
+        <!-- ── APPEARANCE ────────────────────────────────────── -->
+        <TextView style="@style/SectionHeader" android:text="Appearance" />
+
+        <TextView style="@style/FieldLabel" android:text="Icon Size (48–144 dp)" />
+        <SeekBar android:id="@+id/sbIconSize"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:max="96" android:layout_marginBottom="8dp" />
+
+        <LinearLayout style="@style/SwitchRow">
+            <TextView style="@style/SwitchLabel" android:text="Focus Scale Effect" />
+            <Switch android:id="@+id/switchFocusScale"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/SwitchRow">
+            <TextView style="@style/SwitchLabel" android:text="Animations" />
+            <Switch android:id="@+id/switchAnimations"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <TextView style="@style/FieldLabel" android:text="Card Style" />
+        <Spinner android:id="@+id/spinnerCardStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp" />
+
+        <TextView style="@style/FieldLabel" android:text="Row Label Style" />
+        <Spinner android:id="@+id/spinnerRowLabelStyle"
+            android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:layout_marginBottom="12dp" />
+
+        <Button android:id="@+id/btnSaveAppearance" style="@style/PrimaryButton" android:text="Save Appearance" />
+
+        <View style="@style/Divider" />
+
+        <!-- ── CLOCK ────────────────────────────────────────── -->
+        <TextView style="@style/SectionHeader" android:text="Clock" />
+
+        <LinearLayout style="@style/SwitchRow">
+            <TextView style="@style/SwitchLabel" android:text="Show Clock" />
+            <Switch android:id="@+id/switchClock"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/SwitchRow">
+            <TextView style="@style/SwitchLabel" android:text="24-hour Format" />
+            <Switch android:id="@+id/switch24h"
+                android:layout_width="wrap_content" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <Button android:id="@+id/btnSaveClock" style="@style/PrimaryButton" android:text="Save Clock" />
+
+    </LinearLayout>
+</ScrollView>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/dialog_app_context_menu.xml')"
+  cat > 'app/src/main/res/layout/dialog_app_context_menu.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="@drawable/bg_dialog"
+    android:padding="24dp"
+    android:gravity="center_horizontal">
+
+    <ImageView
+        android:id="@+id/ivAppIconMenu"
+        android:layout_width="56dp"
+        android:layout_height="56dp"
+        android:scaleType="fitCenter"
+        android:layout_marginBottom="8dp" />
+
+    <TextView
+        android:id="@+id/tvAppNameMenu"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="@color/text_primary"
+        android:textSize="16sp"
+        android:textStyle="bold"
+        android:gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <Button
+        android:id="@+id/btnOpen"
+        style="@style/PrimaryButton"
+        android:layout_width="match_parent"
+        android:text="Open" />
+
+    <Button
+        android:id="@+id/btnToggleFavourite"
+        style="@style/SecondaryButton"
+        android:layout_width="match_parent"
+        android:layout_marginTop="8dp"
+        android:text="Add to Favourites" />
+
+    <Button
+        android:id="@+id/btnCancel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Cancel"
+        android:background="@android:color/transparent"
+        android:textColor="@color/text_secondary" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_app_card.xml')"
+  cat > 'app/src/main/res/layout/item_app_card.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:layout_marginHorizontal="6dp"
+    android:padding="4dp">
+
+    <FrameLayout
+        android:id="@+id/cardRoot"
+        android:layout_width="88dp"
+        android:layout_height="88dp"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@drawable/bg_app_card">
+
+        <ImageView
+            android:id="@+id/ivAppIcon"
+            android:layout_width="72dp"
+            android:layout_height="72dp"
+            android:layout_gravity="center"
+            android:scaleType="fitCenter" />
+    </FrameLayout>
+
+    <TextView
+        android:id="@+id/tvAppName"
+        android:layout_width="88dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="@color/text_primary"
+        android:textSize="11sp"
+        android:gravity="center"
+        android:maxLines="2"
+        android:ellipsize="end"
+        android:visibility="gone" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_continue_watching_card.xml')"
+  cat > 'app/src/main/res/layout/item_continue_watching_card.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_marginHorizontal="6dp">
+
+    <LinearLayout
+        android:id="@+id/cwCardRoot"
+        android:layout_width="180dp"
+        android:layout_height="120dp"
+        android:orientation="vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@drawable/bg_cw_card"
+        android:foreground="@drawable/selector_focus_ring">
+
+        <!-- Artwork -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <ImageView
+                android:id="@+id/ivCwArtwork"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:src="@drawable/bg_card_placeholder" />
+
+            <!-- Remove button -->
+            <ImageButton
+                android:id="@+id/btnCwRemove"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="top|end"
+                android:layout_margin="4dp"
+                android:src="@drawable/ic_close"
+                android:background="@drawable/bg_remove_btn"
+                android:contentDescription="Remove"
+                android:visibility="gone"
+                android:tint="@color/text_primary" />
+        </FrameLayout>
+
+        <!-- Info bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#CC000000"
+            android:paddingHorizontal="8dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="2dp">
+
+            <TextView
+                android:id="@+id/tvCwTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_primary"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <TextView
+                android:id="@+id/tvCwSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="9sp"
+                android:maxLines="1"
+                android:ellipsize="end" />
+
+            <ProgressBar
+                android:id="@+id/pbCwProgress"
+                style="@android:style/Widget.ProgressBar.Horizontal"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:layout_marginTop="3dp"
+                android:progressTint="@color/accent"
+                android:progressBackgroundTint="#44FFFFFF"
+                android:max="100"
+                android:progress="0"
+                android:visibility="gone" />
+        </LinearLayout>
+    </LinearLayout>
+
+</FrameLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_picker_app.xml')"
+  cat > 'app/src/main/res/layout/item_picker_app.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="10dp"
+    android:paddingHorizontal="8dp"
+    android:focusable="true"
+    android:clickable="true">
+
+    <ImageView
+        android:id="@+id/ivPickerIcon"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginEnd="16dp"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/tvPickerName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp" />
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_row.xml')"
+  cat > 'app/src/main/res/layout/item_row.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="12dp"
+    android:paddingBottom="4dp">
+
+    <TextView
+        android:id="@+id/tvRowLabel"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="6dp"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:letterSpacing="0.10"
+        android:textAllCaps="true" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvApps"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_row_app_edit.xml')"
+  cat > 'app/src/main/res/layout/item_row_app_edit.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="8dp">
+
+    <ImageView
+        android:id="@+id/ivEditAppIcon"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_marginEnd="12dp"
+        android:scaleType="fitCenter" />
+
+    <TextView
+        android:id="@+id/tvEditAppName"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:textColor="@color/text_primary"
+        android:textSize="13sp" />
+
+    <ImageButton
+        android:id="@+id/btnRemoveAppFromRow"
+        android:layout_width="32dp"
+        android:layout_height="32dp"
+        android:src="@drawable/ic_close"
+        android:background="@android:color/transparent"
+        android:tint="#EF5350"
+        android:contentDescription="Remove" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_settings_row.xml')"
+  cat > 'app/src/main/res/layout/item_settings_row.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<!-- item_settings_row.xml -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="10dp"
+    android:paddingHorizontal="4dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvSettingsRowName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvSettingsRowType"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnToggleVisibility"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_visibility_on"
+        android:background="@android:color/transparent"
+        android:tint="@color/text_secondary"
+        android:contentDescription="Toggle visibility" />
+
+    <ImageButton
+        android:id="@+id/btnEditRow"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_edit"
+        android:background="@android:color/transparent"
+        android:tint="@color/text_secondary"
+        android:contentDescription="Edit" />
+
+    <ImageButton
+        android:id="@+id/btnDeleteRow"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_delete"
+        android:background="@android:color/transparent"
+        android:tint="#EF5350"
+        android:contentDescription="Delete" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/item_settings_widget.xml')"
+  cat > 'app/src/main/res/layout/item_settings_widget.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:gravity="center_vertical"
+    android:paddingVertical="10dp"
+    android:paddingHorizontal="4dp">
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <TextView
+            android:id="@+id/tvWidgetName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp" />
+
+        <TextView
+            android:id="@+id/tvWidgetType"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_secondary"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <ImageButton
+        android:id="@+id/btnRemoveWidget"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:src="@drawable/ic_delete"
+        android:background="@android:color/transparent"
+        android:tint="#EF5350"
+        android:contentDescription="Remove widget" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/layout/widget_continue_watching.xml')"
+  cat > 'app/src/main/res/layout/widget_continue_watching.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingTop="16dp"
+    android:paddingBottom="8dp">
+
+    <TextView
+        android:id="@+id/tvContinueWatchingTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="32dp"
+        android:layout_marginBottom="8dp"
+        android:text="Continue Watching"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:letterSpacing="0.10"
+        android:textAllCaps="true" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvContinueWatching"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="24dp"
+        android:paddingEnd="24dp"
+        android:clipToPadding="false"
+        android:overScrollMode="never" />
+
+    <!-- Divider -->
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginHorizontal="32dp"
+        android:layout_marginTop="12dp"
+        android:background="#22FFFFFF" />
+
+</LinearLayout>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-hdpi/ic_launcher.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAADajyQQAAABG0lEQVR4nO3bQQ4CIRBE0bmAd/L+p/AebjSZxBiFAZqCoukitfe/zFI4bpuegx0w6kyFPe7Pab81BPYGtA7egIQZPOOEGBiEhOV1weAeoNAOm6DqsVlg00g9vGYYRWWwtcGIqlZbLYxOauVVwegSg60Moxtstqgwer3ZdgWjd/fYsjB6cactGIze2m9LwOiVEJtgy68Ao/ehbDFg9DKgTTAnS8DoTVibYH4mmLcJ5m0xYPQauG33LyaYgwnmbYJ5WxjYHraPRTAnS8O8274hYWB+bT8KwZZfGebR9k8I9h/0zjAvtlx8yJs5i9uuswPD1rQVm2PfMF2HV5+qW9xsW2ukXkqQbOY2vUaqOIuQzqMXf4gzApA7276qfQGHsr+XTKGn6wAAAABJRU5ErkJggg==' | base64 -d > 'app/src/main/res/mipmap-hdpi/ic_launcher.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-hdpi/ic_launcher_round.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAEgAAABICAIAAADajyQQAAABG0lEQVR4nO3bQQ4CIRBE0bmAd/L+p/AebjSZxBiFAZqCoukitfe/zFI4bpuegx0w6kyFPe7Pab81BPYGtA7egIQZPOOEGBiEhOV1weAeoNAOm6DqsVlg00g9vGYYRWWwtcGIqlZbLYxOauVVwegSg60Moxtstqgwer3ZdgWjd/fYsjB6cactGIze2m9LwOiVEJtgy68Ao/ehbDFg9DKgTTAnS8DoTVibYH4mmLcJ5m0xYPQauG33LyaYgwnmbYJ5WxjYHraPRTAnS8O8274hYWB+bT8KwZZfGebR9k8I9h/0zjAvtlx8yJs5i9uuswPD1rQVm2PfMF2HV5+qW9xsW2ukXkqQbOY2vUaqOIuQzqMXf4gzApA7276qfQGHsr+XTKGn6wAAAABJRU5ErkJggg==' | base64 -d > 'app/src/main/res/mipmap-hdpi/ic_launcher_round.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xhdpi/ic_launcher.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAABjElEQVR4nO3dwXHDQAxDUTfgntx/FenDl/hqORG13CVASx/DAog3uop7u5Pd3NwLdE87oJ/H073CWzxAL4Xc6FfVAaVRvFjlQMtdxFKFQAIaAVMJkJimlGkxkJGmiGkZkB2liGkNkN2izmgWyE5QzTQFZG8uMMoD2TtrjJJA9rYyo2Ege0kx0xiQvZveCKB1QPZWFqOjQPY+LqNDQPYmRqMYyN7BawTQHJB9e7vRHpB97w5GAGWB7Bs3MQIoBWTftY8RQONA9i1bGQE0CGTfr8MABFARkH2zPgMQQACpgew7dRuAAAIIIIAaD0AAAaQDsm/Tc/iCAh2AAAIIIIC6DkAAASQFwuhTByCAAJICYbTRAQig5UAYbTQAGge6stEnBUApoGsa/ekAUBboakb/IQA0AXQdox0B/lnlp95qoHMbhd25vLAI6HxGB1tz/QUgJdA5jIb6csOsBugbjXI1uaNYCfQtRjMFueUahGvAQbgnHYSL5EG4aR+EVxGC8K5GEF5mCcLbPkHaAXXLL0YvCr1DkGTsAAAAAElFTkSuQmCC' | base64 -d > 'app/src/main/res/mipmap-xhdpi/ic_launcher.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xhdpi/ic_launcher_round.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAIAAABt+uBvAAABjElEQVR4nO3dwXHDQAxDUTfgntx/FenDl/hqORG13CVASx/DAog3uop7u5Pd3NwLdE87oJ/H073CWzxAL4Xc6FfVAaVRvFjlQMtdxFKFQAIaAVMJkJimlGkxkJGmiGkZkB2liGkNkN2izmgWyE5QzTQFZG8uMMoD2TtrjJJA9rYyo2Ege0kx0xiQvZveCKB1QPZWFqOjQPY+LqNDQPYmRqMYyN7BawTQHJB9e7vRHpB97w5GAGWB7Bs3MQIoBWTftY8RQONA9i1bGQE0CGTfr8MABFARkH2zPgMQQACpgew7dRuAAAIIIIAaD0AAAaQDsm/Tc/iCAh2AAAIIIIC6DkAAASQFwuhTByCAAJICYbTRAQig5UAYbTQAGge6stEnBUApoGsa/ekAUBboakb/IQA0AXQdox0B/lnlp95qoHMbhd25vLAI6HxGB1tz/QUgJdA5jIb6csOsBugbjXI1uaNYCfQtRjMFueUahGvAQbgnHYSL5EG4aR+EVxGC8K5GEF5mCcLbPkHaAXXLL0YvCr1DkGTsAAAAAElFTkSuQmCC' | base64 -d > 'app/src/main/res/mipmap-xhdpi/ic_launcher_round.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xxhdpi/ic_launcher.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAIAAABoJHXvAAAC7UlEQVR4nO3U4Y0bMQxE4WuAPaX/KtJH/iSAAMOxfWfvLqnhSG/wCljxg/0VzGpf6g9gx7Ys2O9ff9SfUDJXsH8e11M/4sxswFKEFvBrDTYByQ6vI5jQqb9cLzA5T3+2FmByDyM5MZgcwI5NBiY/uimbAEx+aGu2qWDy4y7ANg9MftM1zGaAyU+5Els5mPyCi5kVgskPtyRbFZj8Xh2qOGwJmPxSfUq/bT6Y/Ebdyj1vMpj8Oj1LvHAmmPwuncs6chqY/CL9S7lzDpj8Fi5dP3UCmPwKXonB5O93TAYmf7lvAjD5m92bCiZ/7RpNApO/c6XKweQvXC/AzCoEk79t1UrA5K9aO8DMSgaTv2eH0sDkL9knwMxKAJO/YbcAM+sSmPzr9wwws06Cyb975wAz6zCY/IsJMLMAM+sAmPxbaQSYWR+Byb+S7gPMLMDMegMm/z56DjCzADMLMLO+BZN/GX0XYGYBZhZgZgFm1gsw+TfRzwFmFmBmAWYWYGYBZhZgZgFmFmBmAWYWYGb9Byb/GvokfmFO8ZdoFmBmAWYWYGYBZhZgZgFmFmBmAWYWYGY9gmHWuZsRYB4BZhZgZgFm1mswzHp2DwSYQYCZBZhZP4Fh1q0HHcC6B5hZ78Ew69MzDWCt+xQMsw69dAGsb4CZdQwMs4ZagPXtDBhm3bQAa9p5MMxaaQHWsatgmPXRAqxdOWCYNdE6AIZZBy3AGpUPhplc6zAYZlotwFpUC4aZUOskGGYqrfNgmEm0LoFhNl/rKhhmk7USwDCbqZUDhtk0rcgCC8ymaEUiWGBWrxW5YIFZsVakgwVmlVpRARaYlWlFEVhgVqMVdWCxvVnRVQvBxuSHW4ZqrBwsNjOrPuYMsDH5Kd2pxuaBxdJm0244FWxMflxTqjEB2Jj80HZUYzKwMfnRjajGxGBjcgALqrEWYLfJPdo63dYLbEzO05NqrCPYbTg9rzXY/XZGup8N2MP2EXqYK9jbmXq83bJgq+4vA8On9F7rx6UAAAAASUVORK5CYII=' | base64 -d > 'app/src/main/res/mipmap-xxhdpi/ic_launcher.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAIAAABoJHXvAAAC7UlEQVR4nO3U4Y0bMQxE4WuAPaX/KtJH/iSAAMOxfWfvLqnhSG/wCljxg/0VzGpf6g9gx7Ys2O9ff9SfUDJXsH8e11M/4sxswFKEFvBrDTYByQ6vI5jQqb9cLzA5T3+2FmByDyM5MZgcwI5NBiY/uimbAEx+aGu2qWDy4y7ANg9MftM1zGaAyU+5Els5mPyCi5kVgskPtyRbFZj8Xh2qOGwJmPxSfUq/bT6Y/Ebdyj1vMpj8Oj1LvHAmmPwuncs6chqY/CL9S7lzDpj8Fi5dP3UCmPwKXonB5O93TAYmf7lvAjD5m92bCiZ/7RpNApO/c6XKweQvXC/AzCoEk79t1UrA5K9aO8DMSgaTv2eH0sDkL9knwMxKAJO/YbcAM+sSmPzr9wwws06Cyb975wAz6zCY/IsJMLMAM+sAmPxbaQSYWR+Byb+S7gPMLMDMegMm/z56DjCzADMLMLO+BZN/GX0XYGYBZhZgZgFm1gsw+TfRzwFmFmBmAWYWYGYBZhZgZgFmFmBmAWYWYGb9Byb/GvokfmFO8ZdoFmBmAWYWYGYBZhZgZgFmFmBmAWYWYGY9gmHWuZsRYB4BZhZgZgFm1mswzHp2DwSYQYCZBZhZP4Fh1q0HHcC6B5hZ78Ew69MzDWCt+xQMsw69dAGsb4CZdQwMs4ZagPXtDBhm3bQAa9p5MMxaaQHWsatgmPXRAqxdOWCYNdE6AIZZBy3AGpUPhplc6zAYZlotwFpUC4aZUOskGGYqrfNgmEm0LoFhNl/rKhhmk7USwDCbqZUDhtk0rcgCC8ymaEUiWGBWrxW5YIFZsVakgwVmlVpRARaYlWlFEVhgVqMVdWCxvVnRVQvBxuSHW4ZqrBwsNjOrPuYMsDH5Kd2pxuaBxdJm0244FWxMflxTqjEB2Jj80HZUYzKwMfnRjajGxGBjcgALqrEWYLfJPdo63dYLbEzO05NqrCPYbTg9rzXY/XZGup8N2MP2EXqYK9jbmXq83bJgq+4vA8On9F7rx6UAAAAASUVORK5CYII=' | base64 -d > 'app/src/main/res/mipmap-xxhdpi/ic_launcher_round.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xxxhdpi/ic_launcher.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEgUlEQVR4nO3V0ZHbMBAEUSeAnJx/FM7DP7YLVzpaoiiSs8AsgN7qAETMq7sfheOE++H+AdzYB6AP9+vnb/dPSH3rAvorIzb3B3luFUDhXCBVb2ZAFjSrYZoNkB3KapgmAWQ3sayksQHZBSBpVED2yWFUbzxA9plhtL1hANl3RdLuDQDIPiSMDi41IPt4eXJP8fbyArJvli33IPuXEZB9qsy5x3m+XIDs84ySe6jvSwTIvspYuef6uhSA7GOMm3u6BIDsG4yedz4nIPvTz5RrRBsg+4vPl2VHDyD7W89a/yl7A7I/8Qr1HLQrIPvLrlO3TfsBsr/pavWZtRMg+2uuWYdlewCyv+PKtR63OSD7C1LTfdsCsr8d1dpN3BCQ/dVoW6OVWwGyvxe91mLoJoDsL0XvCt86HpD9jei42LmDAdlfh84UuHgkIPu70PmiRg8DZH8RulrI7jGA7G9B99KnB9DS6dMHALK/AimZAdm/n/RsgOxfTlEBiKQMgOzfTLF1BWT/WmoRgEiqEyD7d1K7mgOyfyG1DkAk1RCQ/duoTwAiqSaA7F9FPQsGZP8e6h+ASCoMkP1LyBWASCoAkP0byBuASApAJCUBsv96yhCASOomIPvvpjwBiKQuA7L/YsoWgEgKQCR1AZD9t1LOAERSACKpU4Dsv5IyByCSAhBJAYikPgCy/z7KH4BICkAkBSCSegvI/stolABEUgAiKQCRFIBICkAktQPI/ptorABEUgAiKQCRFIBICkAkBSCSAhBJAYikAERSACIpAJEUgEjqP0D2X0Mjxl8guh//wkgKQCQFIJICEEkBiKQARFIAIikAkRSASApAJAUgkgIQST0DwhCd72EGQHQnAJEUgEgKQCQFIJLaB4QhOtMWDIDocgAiKQCR1BEgDNFxT1oARNcCEEkBiKQ+A8IQveuVCoDoQgAiqbOAMESv7ToBEJ0NQCR1DRCGaNs7JACiU90BhCGqHQgBEH3uPiAM0TEPANGHAERSKiAMrdxHGwCio2IAYWjNzsAAEL0tEhCGVuukiguAMLRO50kAiHZqBQhDK3TJA4DoubaAMDR3VzHcAYShWbshAUD0XT9AGJqvewzuA8LQTN02ACD6lwcQhuZIAaACwtDoiesHAMLQuOnTA2jp9OljABUMDVjI7mGACoaGKmr0SEAFQ4MUuHgwoIKh9MXOHQ+oYChx4Vs3AVQwlLIWQ7cCVDCUrEYrNwRUMJSmdhO3BVQwlKCm+zYHVDA0r57SB1DB0KR6SjdABUMz6ik9ARUMTaendAZUMDSXntIfUD37E89a/yk9gAqGptBTjIAKhsbXU7yA6tmffvS88/kBFQwNq6ckAVTPPsZYuef6ukSACoZG01OyAapnnydz7nGeLyOgevapsuUeZP/yAioYSq+nJAdUzz4edA5uAED17ENCZ/eGAfQ4+6642d54gOrZZ4ZOvVEB1bNPvjKdemMDepxdwGpuHjcJoMfZTSzi5nGzAdqeHcqsaLY3M6DtgabRrQLo9eAScusCOnnLyjh5AOKk+wNIwIvcNFY8nQAAAABJRU5ErkJggg==' | base64 -d > 'app/src/main/res/mipmap-xxxhdpi/ic_launcher.png'
+  mkdir -p "$(dirname 'app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png')"
+  echo 'iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAIAAADdvvtQAAAEgUlEQVR4nO3V0ZHbMBAEUSeAnJx/FM7DP7YLVzpaoiiSs8AsgN7qAETMq7sfheOE++H+AdzYB6AP9+vnb/dPSH3rAvorIzb3B3luFUDhXCBVb2ZAFjSrYZoNkB3KapgmAWQ3sayksQHZBSBpVED2yWFUbzxA9plhtL1hANl3RdLuDQDIPiSMDi41IPt4eXJP8fbyArJvli33IPuXEZB9qsy5x3m+XIDs84ySe6jvSwTIvspYuef6uhSA7GOMm3u6BIDsG4yedz4nIPvTz5RrRBsg+4vPl2VHDyD7W89a/yl7A7I/8Qr1HLQrIPvLrlO3TfsBsr/pavWZtRMg+2uuWYdlewCyv+PKtR63OSD7C1LTfdsCsr8d1dpN3BCQ/dVoW6OVWwGyvxe91mLoJoDsL0XvCt86HpD9jei42LmDAdlfh84UuHgkIPu70PmiRg8DZH8RulrI7jGA7G9B99KnB9DS6dMHALK/AimZAdm/n/RsgOxfTlEBiKQMgOzfTLF1BWT/WmoRgEiqEyD7d1K7mgOyfyG1DkAk1RCQ/duoTwAiqSaA7F9FPQsGZP8e6h+ASCoMkP1LyBWASCoAkP0byBuASApAJCUBsv96yhCASOomIPvvpjwBiKQuA7L/YsoWgEgKQCR1AZD9t1LOAERSACKpU4Dsv5IyByCSAhBJAYikPgCy/z7KH4BICkAkBSCSegvI/stolABEUgAiKQCRFIBICkAktQPI/ptorABEUgAiKQCRFIBICkAkBSCSAhBJAYikAERSACIpAJEUgEjqP0D2X0Mjxl8guh//wkgKQCQFIJICEEkBiKQARFIAIikAkRSASApAJAUgkgIQST0DwhCd72EGQHQnAJEUgEgKQCQFIJLaB4QhOtMWDIDocgAiKQCR1BEgDNFxT1oARNcCEEkBiKQ+A8IQveuVCoDoQgAiqbOAMESv7ToBEJ0NQCR1DRCGaNs7JACiU90BhCGqHQgBEH3uPiAM0TEPANGHAERSKiAMrdxHGwCio2IAYWjNzsAAEL0tEhCGVuukiguAMLRO50kAiHZqBQhDK3TJA4DoubaAMDR3VzHcAYShWbshAUD0XT9AGJqvewzuA8LQTN02ACD6lwcQhuZIAaACwtDoiesHAMLQuOnTA2jp9OljABUMDVjI7mGACoaGKmr0SEAFQ4MUuHgwoIKh9MXOHQ+oYChx4Vs3AVQwlLIWQ7cCVDCUrEYrNwRUMJSmdhO3BVQwlKCm+zYHVDA0r57SB1DB0KR6SjdABUMz6ik9ARUMTaendAZUMDSXntIfUD37E89a/yk9gAqGptBTjIAKhsbXU7yA6tmffvS88/kBFQwNq6ckAVTPPsZYuef6ukSACoZG01OyAapnnydz7nGeLyOgevapsuUeZP/yAioYSq+nJAdUzz4edA5uAED17ENCZ/eGAfQ4+6642d54gOrZZ4ZOvVEB1bNPvjKdemMDepxdwGpuHjcJoMfZTSzi5nGzAdqeHcqsaLY3M6DtgabRrQLo9eAScusCOnnLyjh5AOKk+wNIwIvcNFY8nQAAAABJRU5ErkJggg==' | base64 -d > 'app/src/main/res/mipmap-xxxhdpi/ic_launcher_round.png'
+  mkdir -p "$(dirname 'app/src/main/res/values/colors.xml')"
+  cat > 'app/src/main/res/values/colors.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#0D0D0D</color>
+    <color name="bg_card">#1E1E1E</color>
+    <color name="accent">#E040FB</color>
+    <color name="text_primary">#FFFFFF</color>
+    <color name="text_secondary">#B0B0B0</color>
+    <color name="focus_ring">#E040FB</color>
+</resources>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/values/strings.xml')"
+  cat > 'app/src/main/res/values/strings.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shrine Launcher</string>
+    <string name="settings_title">Shrine Settings</string>
+    <string name="row_editor_title">Edit Row</string>
+    <string name="app_picker_title">Pick App</string>
+</resources>
+
+FILEOF
+  mkdir -p "$(dirname 'app/src/main/res/values/themes.xml')"
+  cat > 'app/src/main/res/values/themes.xml' << 'FILEOF'
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.ShrineLauncher" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="android:statusBarColor">@color/bg_dark</item>
+        <item name="android:navigationBarColor">@color/bg_dark</item>
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorAccent">@color/accent</item>
+        <item name="android:textColorPrimary">@color/text_primary</item>
+        <item name="android:textColorSecondary">@color/text_secondary</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+
+    <!-- Section header label -->
+    <style name="SectionHeader">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/accent</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:letterSpacing">0.12</item>
+        <item name="android:layout_marginTop">20dp</item>
+        <item name="android:layout_marginBottom">10dp</item>
+    </style>
+
+    <!-- Field label -->
+    <style name="FieldLabel">
+        <item name="android:layout_width">wrap_content</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">@color/text_secondary</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+        <item name="android:layout_marginTop">8dp</item>
+    </style>
+
+    <!-- Text input -->
+    <style name="SettingsInput">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textColorHint">@color/text_secondary</item>
+        <item name="android:padding">12dp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+
+    <!-- Switch row wrapper -->
+    <style name="SwitchRow">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:orientation">horizontal</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:paddingVertical">8dp</item>
+    </style>
+
+    <!-- Switch row label -->
+    <style name="SwitchLabel">
+        <item name="android:layout_width">0dp</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:layout_weight">1</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14sp</item>
+    </style>
+
+    <!-- Primary action button -->
+    <style name="PrimaryButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:background">@drawable/bg_btn_primary</item>
+        <item name="android:textColor">@color/text_primary</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- Secondary / ghost button -->
+    <style name="SecondaryButton">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">44dp</item>
+        <item name="android:background">@drawable/bg_btn_secondary</item>
+        <item name="android:textColor">@color/accent</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:focusable">true</item>
+    </style>
+
+    <!-- Horizontal divider -->
+    <style name="Divider">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">1dp</item>
+        <item name="android:background">#22FFFFFF</item>
+        <item name="android:layout_marginVertical">16dp</item>
+    </style>
+
+</resources>
+
+FILEOF
+  mkdir -p "$(dirname 'gradle/wrapper/gradle-wrapper.properties')"
+  cat > 'gradle/wrapper/gradle-wrapper.properties' << 'FILEOF'
+distributionBase=GRADLE_USER_HOME
+distributionPath=wrapper/dists
+distributionUrl=https\://services.gradle.org/distributions/gradle-8.4-bin.zip
+networkTimeout=10000
+zipStoreBase=GRADLE_USER_HOME
+zipStorePath=wrapper/dists
+
+FILEOF
 
       - name: Download Gradle wrapper jar
         run: |
-          mkdir -p gradle/wrapper
           curl -sL "https://github.com/gradle/gradle/raw/v8.4.0/gradle/wrapper/gradle-wrapper.jar" \
             -o gradle/wrapper/gradle-wrapper.jar
 
       - name: Make gradlew executable
         run: chmod +x gradlew
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon --
+      - name: Build APK
+        run: ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShrineLauncher-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
