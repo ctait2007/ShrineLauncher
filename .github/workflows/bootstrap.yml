@@ -3,7 +3,7 @@ name: Bootstrap - Unzip and Commit Project
 on:
   push:
     paths:
-      - 'ShrineLauncher.zip'  # only triggers when the zip is uploaded
+      - 'ShrineLauncher.zip'
 
 jobs:
   unzip-and-commit:
@@ -13,13 +13,15 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Unzip project
+      - name: Unzip project (excluding workflows)
         run: |
           unzip -o ShrineLauncher.zip
-          # Move contents out of the subfolder to repo root
           cp -r ShrineLauncher/. .
           rm -rf ShrineLauncher
           rm ShrineLauncher.zip
+          # Remove the workflows folder from the unzipped content
+          # so we don't conflict with existing workflow files
+          rm -rf .github/workflows/build.yml
 
       - name: Commit all project files
         run: |
