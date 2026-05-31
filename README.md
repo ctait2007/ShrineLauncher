@@ -42,16 +42,7 @@ exactly where you want them. Everything is navigable with a standard Fire TV rem
 - **Continue Watching** — pulls live content from any app that supports Android TV’s Watch Next API (Nuvio, Stremio, Netflix, Prime Video, etc.)
 - **Watch Next** — upcoming episodes and new content from your streaming apps
 - **Wallpaper** — set any image as your background, or choose a slideshow that cycles through a collection on a timer
-- **Clock and date** — optional clock and date display in the top bar, with 12/24 hour format toggle
-- **Empty state messaging** — rows that have no content show a helpful message instead of blank space
 - **Pinned rows** — pin any row to always appear at the top of the home screen
-
-### App Management
-
-- **All Apps row** — every installed app in one scrollable row
-- **Custom rows** — hand-pick which apps appear in a row and in what order
-- **App editor** — toggle apps in/out of a row, reorder with up/down arrows
-- **Per-row icon size** — override the global icon size on a per-row basis (S / M / L / XL)
 - **Banner mode** — rows can display TV banner art instead of square icons
 
 ### Streaming Channels
@@ -99,11 +90,6 @@ exactly where you want them. Everything is navigable with a standard Fire TV rem
 1. Transfer to your Fire TV via [Downloader](https://www.amazon.com/AFTVnews-com-Downloader/dp/B01N0BP507) or ADB
 1. Install and set as your home launcher
 
-### Set as default launcher
-
-On Fire TV, Shrine will prompt you to set it as the default launcher on first open.
-If it doesn’t, go to: Settings → Applications → Default Apps → Home App → Shrine Launcher
-
 -----
 
 ## ADB Permission Setup (optional but recommended)
@@ -111,17 +97,7 @@ If it doesn’t, go to: Settings → Applications → Default Apps → Home App 
 Some features require an elevated permission that must be granted once via ADB.
 This enables **Force Stop** from the context menu and **silent APK install** in the App Installer.
 
-**Step 1 — Enable ADB on your Fire TV:**
-
-- Settings → My Fire TV → About → click your device name **7 times** to enable Developer Options
-- Settings → My Fire TV → Developer Options → ADB Debugging → **On**
-- Settings → My Fire TV → Developer Options → Network ADB → **On**
-
-**Step 2 — Find your Fire TV’s IP address:**
-
-- Settings → My Fire TV → About → Network
-
-**Step 3 — Connect from your ADB client and grant permission:**
+*Connect from your ADB client and grant permission:**
 
 ```bash
 adb connect YOUR_FIRE_TV_IP:5555
@@ -182,9 +158,6 @@ and any other app that implements the Android TV Channels API.
 Shrine queries all Watch Next records without type filtering and categorises them in Kotlin
 after retrieval, which means it picks up content from apps that don’t consistently set the
 `WATCH_NEXT_TYPE_CONTINUE` field — a common issue with third-party streaming apps.
-
-If a channel row is empty, Shrine falls back to querying `PreviewPrograms` directly,
-which catches apps that publish Continue Watching content via channels rather than Watch Next.
 
 -----
 
