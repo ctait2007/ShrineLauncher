@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Shrine Launcher</string>
+    <string name="settings_title">Shrine Settings</string>
+    <string name="row_editor_title">Edit Row</string>
+    <string name="app_picker_title">Pick App</string>
+</resources>
