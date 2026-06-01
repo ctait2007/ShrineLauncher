@@ -66,17 +66,18 @@ class RowsListAdapter(
             btnMode.setOnClickListener  { onDisplayModeToggle(row) }
 
             listOf(btnMode, btnVis, btnEdit, btnDel).forEach { btn ->
-                btn.setOnFocusChangeListener { v, hasFocus ->
+                fun applyBtnBg(v: android.view.View, hasFocus: Boolean) {
                     val dp = v.resources.displayMetrics.density
-                    val bg = android.graphics.drawable.GradientDrawable().apply {
+                    v.background = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                         setColor(0x00000000)
                         setStroke(if (hasFocus) (2 * dp).toInt() else (1 * dp).toInt(),
                             if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                         cornerRadius = 6 * dp
                     }
-                    v.background = bg
                 }
+                applyBtnBg(btn, false)  // always-visible white border from first render
+                btn.setOnFocusChangeListener { v, hasFocus -> applyBtnBg(v, hasFocus) }
             }
         }
     }

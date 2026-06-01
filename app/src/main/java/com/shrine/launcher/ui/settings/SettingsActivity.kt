@@ -138,6 +138,17 @@ class SettingsActivity : AppCompatActivity() {
                     else getColor(R.color.text_primary)
                 )
             }
+            // D-pad right from any nav item jumps to first focusable in the current panel
+            if (index < panels.size) {
+                tv.setOnKeyListener { _, keyCode, event ->
+                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                            && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                        val panel = panels.getOrNull(lastNavIndex) ?: return@setOnKeyListener false
+                        findFirstFocusable(panel)?.requestFocus()
+                        true
+                    } else false
+                }
+            }
         }
         binding.btnBack.setOnClickListener {
             if (lastNavIndex == 1 && appearanceDirty) showUnsavedChangesDialog()
@@ -479,7 +490,6 @@ class SettingsActivity : AppCompatActivity() {
                 updateSizeSelection(label)
                 appearanceDirty = true
             }
-            applyFocusOutline(btn)
         }
 
         binding.sbCornerRadius.progress = prefs.cardCornerRadiusPercent / 10
@@ -714,17 +724,18 @@ class SettingsActivity : AppCompatActivity() {
     // ── Helpers ────────────────────────────────────────────────────────────────
 
     private fun applyFocusOutline(v: View) {
-        v.setOnFocusChangeListener { fv, hasFocus ->
+        fun applyBg(fv: View, hasFocus: Boolean) {
             val dp = fv.resources.displayMetrics.density
-            val bg = GradientDrawable().apply {
+            fv.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setColor(0x00000000)
-                setStroke(if (hasFocus) (2 * dp).toInt() else 0,
-                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000)
+                setStroke(if (hasFocus) (2 * dp).toInt() else (1 * dp).toInt(),
+                    if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                 cornerRadius = 8 * dp
             }
-            fv.background = bg
         }
+        applyBg(v, false)
+        v.setOnFocusChangeListener { fv, hasFocus -> applyBg(fv, hasFocus) }
     }
 
     private fun seekListener(onChange: (Int) -> Unit) = object : SeekBar.OnSeekBarChangeListener {

@@ -308,10 +308,17 @@ class HomeActivity : AppCompatActivity() {
     private fun launchContent(content: TvContent) {
         content.deepLinkUri?.let { uri ->
             try {
-                startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(uri))
-                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                val intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME)
+                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                startActivity(intent)
                 return
-            } catch (e: Exception) { /* fall through */ }
+            } catch (e: Exception) {
+                try {
+                    startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(uri))
+                        .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                    return
+                } catch (e2: Exception) { /* fall through */ }
+            }
         }
         vm.launchApp(content.packageName)
     }

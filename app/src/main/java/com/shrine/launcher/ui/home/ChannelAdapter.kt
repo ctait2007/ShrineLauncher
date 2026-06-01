@@ -81,12 +81,15 @@ class ChannelAdapter(
             cardRoot.isFocusable = true
             cardRoot.isFocusableInTouchMode = false
 
+            cardRoot.stateListAnimator = null
+
             cardRoot.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
-                    && event.action == android.view.KeyEvent.ACTION_DOWN
-                    && adapterPosition == 0) {
-                    onLeftFromFirst?.invoke()
-                    true
+                if (event.action == android.view.KeyEvent.ACTION_DOWN) when {
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && adapterPosition == 0 -> {
+                        onLeftFromFirst?.invoke(); true
+                    }
+                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && adapterPosition == itemCount - 1 -> true
+                    else -> false
                 } else false
             }
 
@@ -95,9 +98,6 @@ class ChannelAdapter(
                 applyCardBg(v, focused = hasFocus)
                 tvTitle.visibility    = if (hasFocus) View.VISIBLE else View.GONE
                 tvSubtitle.visibility = if (hasFocus) View.VISIBLE else View.GONE
-                v.animate()
-                    .translationZ(if (hasFocus) 8f else 0f)
-                    .setDuration(120).start()
             }
         }
     }

@@ -59,6 +59,9 @@ jobs:
           VERSION=$(grep versionName app/build.gradle.kts | sed 's/.*versionName = "\(.*\)".*/\1/')
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
+      - name: Rename APK
+        run: cp app/build/outputs/apk/debug/app-debug.apk shrine-v${{ steps.version.outputs.VERSION }}-beta.apk
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -67,7 +70,7 @@ jobs:
           body: |
             Shrine Launcher v${{ steps.version.outputs.VERSION }}
             Install over any previous version.
-          files: app/build/outputs/apk/debug/app-debug.apk
+          files: shrine-v${{ steps.version.outputs.VERSION }}-beta.apk
           make_latest: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

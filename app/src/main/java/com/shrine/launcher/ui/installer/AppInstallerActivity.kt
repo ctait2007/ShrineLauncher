@@ -43,6 +43,7 @@ class AppInstallerActivity : AppCompatActivity() {
 
         listOf(btnInstallUrl, btnPickApk, btnClose).forEach { btn ->
             btn.isFocusable = true
+            applyFocus(btn, false)
             btn.setOnFocusChangeListener { v, hasFocus -> applyFocus(v, hasFocus) }
         }
 
@@ -192,9 +193,9 @@ class AppInstallerActivity : AppCompatActivity() {
         val dp = v.resources.displayMetrics.density
         val bg = GradientDrawable().apply {
             shape = GradientDrawable.RECTANGLE
-            setColor(if (hasFocus) 0x22FFFFFF.toInt() else 0x00000000)
-            setStroke(if (hasFocus) (2 * dp).toInt() else 0,
-                if (hasFocus) 0xFFFFFFFF.toInt() else 0)
+            setColor(0x00000000)
+            setStroke(if (hasFocus) (2 * dp).toInt() else (1 * dp).toInt(),
+                if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
             cornerRadius = 8 * dp
         }
         v.background = bg

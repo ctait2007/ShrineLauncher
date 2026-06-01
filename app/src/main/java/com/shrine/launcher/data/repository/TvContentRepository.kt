@@ -175,7 +175,7 @@ class TvContentRepository(private val context: Context) {
         try {
             val cursor = cr.query(
                 TvContractCompat.PreviewPrograms.CONTENT_URI,
-                null, null, null, null
+                null, null, null, "_id DESC"
             ) ?: run {
                 Log.w(TAG, "PreviewPrograms cursor null")
                 return emptyList()
@@ -262,7 +262,7 @@ class TvContentRepository(private val context: Context) {
         val channelName = channel.displayName?.toString() ?: ""
         try {
             val uri = TvContractCompat.buildPreviewProgramsUriForChannel(channel.id)
-            val cursor = cr.query(uri, null, null, null, null) ?: return emptyList()
+            val cursor = cr.query(uri, null, null, null, "_id DESC") ?: return emptyList()
             cursor.use { c ->
                 while (c.moveToNext() && results.size < 20) {
                     try {

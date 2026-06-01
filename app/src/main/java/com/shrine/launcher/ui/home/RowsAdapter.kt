@@ -141,6 +141,26 @@ class RowsAdapter(
                 }
             }
 
+            // D-pad right stays within panel; only the rightmost button (btnRowSettings) closes it
+            btnDisplayMode.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    btnIconSize.requestFocus(); true
+                } else false
+            }
+            btnIconSize.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    btnRowSettings.requestFocus(); true
+                } else false
+            }
+            btnRowSettings.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
+                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
+                    collapsePanel(); true
+                } else false
+            }
+
             when (item) {
                 is RowItem.CategoryRow -> bindCategory(item)
                 is RowItem.ChannelRow  -> bindChannel(item)
