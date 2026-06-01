@@ -17,14 +17,6 @@
         <TextView android:id="@+id/navInstaller"
             style="@style/NavItem" android:text="Installer" />
 
-        <View android:layout_width="match_parent" android:layout_height="0dp"
-            android:layout_weight="1" />
-
-        <TextView android:id="@+id/btnBack"
-            android:layout_width="match_parent" android:layout_height="wrap_content"
-            android:text="← Back" android:textColor="@color/text_secondary"
-            android:textSize="13sp" android:paddingVertical="12dp"
-            android:focusable="true" />
     </LinearLayout>
 
     <!-- Right content panels -->

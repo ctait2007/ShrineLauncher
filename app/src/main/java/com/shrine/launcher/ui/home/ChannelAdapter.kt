@@ -48,8 +48,8 @@ class ChannelAdapter(
         fun bind(content: TvContent) {
             tvTitle.text    = content.title
             tvSubtitle.text = content.subtitle
-            tvTitle.visibility    = View.GONE
-            tvSubtitle.visibility = View.GONE
+            tvTitle.visibility    = View.INVISIBLE
+            tvSubtitle.visibility = View.INVISIBLE
             focusOverlay.visibility = View.GONE
 
             // Size the card
@@ -73,6 +73,12 @@ class ChannelAdapter(
             cardRoot.background      = cardBg
             cardRoot.clipToOutline   = true
             cardRoot.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+
+            // Diagnose progress values so we can confirm the cursor columns are correct
+            android.util.Log.d("ChannelAdapter",
+                "bind: id=${content.id} title=${content.title} " +
+                "progressMs=${content.progressMs} durationMs=${content.durationMs} " +
+                "progressPercent=${content.progressPercent}")
 
             // Progress bar: show if we have a playback position
             when {
@@ -146,8 +152,8 @@ class ChannelAdapter(
                     focusOverlay.background = null
                 }
 
-                tvTitle.visibility    = if (hasFocus) View.VISIBLE else View.GONE
-                tvSubtitle.visibility = if (hasFocus) View.VISIBLE else View.GONE
+                tvTitle.visibility    = if (hasFocus) View.VISIBLE else View.INVISIBLE
+                tvSubtitle.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
             }
         }
     }

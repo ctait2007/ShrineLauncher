@@ -215,6 +215,13 @@ class RowsAdapter(
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
             btnIconSize.isFocusable    = false
+
+            // Restore focus SYNCHRONOUSLY before the animation starts so the layout
+            // system never briefly assigns focus to an unintended view during the transition.
+            val lm = rvApps.layoutManager as? LinearLayoutManager
+            val target = lm?.findViewByPosition(0) ?: firstRowItemView
+            target?.requestFocus()
+
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
             sidePanel.animate()
@@ -226,10 +233,6 @@ class RowsAdapter(
                     btnRowSettings.visibility = View.GONE
                     btnDisplayMode.visibility = View.GONE
                     btnIconSize.visibility    = View.GONE
-                    // Return focus to the first item of the active row
-                    val lm = rvApps.layoutManager as? LinearLayoutManager
-                    val target = lm?.findViewByPosition(0) ?: firstRowItemView
-                    target?.requestFocus()
                 }
                 .start()
             rowContent.animate()

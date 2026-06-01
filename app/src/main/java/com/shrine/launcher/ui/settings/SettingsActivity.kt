@@ -150,14 +150,6 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
-        binding.btnBack.setOnClickListener {
-            if (lastNavIndex == 1 && appearanceDirty) showUnsavedChangesDialog()
-            else finish()
-        }
-        binding.btnBack.setOnFocusChangeListener { _, hasFocus ->
-            binding.btnBack.setTextColor(if (hasFocus) getColor(R.color.accent)
-                else getColor(R.color.text_secondary))
-        }
         setupFocusContainment()
     }
 

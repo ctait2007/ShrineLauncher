@@ -121,8 +121,8 @@ class HomeActivity : AppCompatActivity() {
             cornerRadiusPercent    = prefs?.cardCornerRadiusPercent ?: 50,
             iconSizeDp             = com.shrine.launcher.data.model.iconSizeDp(prefs?.iconSizeLabel ?: "M"),
             rowStartPaddingDp      = prefs?.rowStartPaddingDp ?: 24,
-            itemSpacingDp          = prefs?.itemSpacingPercent ?: 10,
-            rowSpacingDp           = prefs?.rowSpacingPercent ?: 20
+            itemSpacingDp          = (prefs?.itemSpacingPercent ?: 10) * 5,
+            rowSpacingDp           = (prefs?.rowSpacingPercent ?: 20) * 5
         )
         binding.rvRows.apply {
             layoutManager = LinearLayoutManager(this@HomeActivity)
