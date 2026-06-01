@@ -122,7 +122,7 @@
                     android:layout_marginBottom="8dp">
                     <SeekBar android:id="@+id/sbBottomMargin" android:layout_width="0dp"
                         android:layout_height="wrap_content" android:layout_weight="1"
-                        android:max="90" android:focusable="true" />
+                        android:max="100" android:focusable="true" />
                     <TextView android:id="@+id/tvBottomMarginValue" android:layout_width="44dp"
                         android:layout_height="wrap_content" android:textColor="@color/accent"
                         android:textSize="12sp" android:gravity="center"
@@ -132,7 +132,7 @@
                 <TextView style="@style/FieldLabel" android:text="Start Margin" />
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
                     android:orientation="horizontal" android:gravity="center_vertical"
-                    android:layout_marginBottom="16dp">
+                    android:layout_marginBottom="8dp">
                     <SeekBar android:id="@+id/sbRowStartPadding" android:layout_width="0dp"
                         android:layout_height="wrap_content" android:layout_weight="1"
                         android:max="100" android:focusable="true" />
@@ -140,6 +140,32 @@
                         android:layout_height="wrap_content" android:textColor="@color/accent"
                         android:textSize="12sp" android:gravity="center"
                         android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <TextView style="@style/FieldLabel" android:text="Row Spacing" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+                    <SeekBar android:id="@+id/sbRowSpacing"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:max="100" android:focusable="true" />
+                    <TextView android:id="@+id/tvRowSpacingValue"
+                        android:layout_width="44dp" android:layout_height="wrap_content"
+                        android:textColor="@color/accent" android:textSize="12sp"
+                        android:gravity="center" android:layout_marginStart="8dp" />
+                </LinearLayout>
+
+                <TextView style="@style/FieldLabel" android:text="Item Spacing" />
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical"
+                    android:layout_marginBottom="16dp">
+                    <SeekBar android:id="@+id/sbItemSpacing"
+                        android:layout_width="0dp" android:layout_height="wrap_content"
+                        android:layout_weight="1" android:max="100" android:focusable="true" />
+                    <TextView android:id="@+id/tvItemSpacingValue"
+                        android:layout_width="44dp" android:layout_height="wrap_content"
+                        android:textColor="@color/accent" android:textSize="12sp"
+                        android:gravity="center" android:layout_marginStart="8dp" />
                 </LinearLayout>
 
                 <!-- Wallpaper -->
@@ -212,7 +238,7 @@
                     android:layout_marginBottom="16dp">
                     <SeekBar android:id="@+id/sbSlideshowInterval"
                         android:layout_width="0dp" android:layout_height="wrap_content"
-                        android:layout_weight="1" android:max="5" android:focusable="true" />
+                        android:layout_weight="1" android:max="19" android:focusable="true" />
                     <TextView android:id="@+id/tvSlideshowIntervalValue"
                         android:layout_width="56dp" android:layout_height="wrap_content"
                         android:textColor="@color/accent" android:textSize="12sp"

@@ -78,13 +78,13 @@
 
     <LinearLayout
         android:id="@+id/sidePanel"
-        android:layout_width="96dp"
+        android:layout_width="136dp"
         android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#EE0D0D0D"
+        android:background="@android:color/transparent"
         android:elevation="16dp"
-        android:translationX="-96dp"
+        android:translationX="-136dp"
         android:visibility="invisible"
         android:clipChildren="false"
         android:layout_gravity="start">
@@ -100,6 +100,18 @@
             android:focusable="false"
             android:padding="6dp"
             android:layout_marginStart="8dp"
+            android:layout_marginEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btnIconSize"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_grid"
+            android:background="@drawable/selector_focusable_item"
+            android:tint="@color/text_primary"
+            android:contentDescription="Icon size"
+            android:focusable="false"
+            android:padding="6dp"
             android:layout_marginEnd="4dp" />
 
         <ImageButton

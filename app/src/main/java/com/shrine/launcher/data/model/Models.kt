@@ -129,6 +129,8 @@ data class LauncherPrefs(
     val rowsBottomMarginPercent: Int        = 15,
     val rowStartPaddingDp: Int              = 24,
     val rowStartPaddingPercent: Int         = 20,
+    val rowSpacingPercent: Int              = 20,  // vertical space between rows 0-100%
+    val itemSpacingPercent: Int             = 10,  // horizontal space between items 0-100%
     val animationsEnabled: Boolean          = true,
     val globalCardDisplayMode: CardDisplayMode = CardDisplayMode.ICON
 )

@@ -27,7 +27,9 @@ class RowsAdapter(
     private val onRowDisplayModeToggle: (LauncherRow) -> Unit,
     private val cornerRadiusPercent: Int = 50,
     private val iconSizeDp: Int = 88,
-    private val rowStartPaddingDp: Int = 24
+    private val rowStartPaddingDp: Int = 24,
+    private val itemSpacingDp: Int = 12,
+    private val rowSpacingDp: Int = 20
 ) : ListAdapter<RowItem, RowsAdapter.RowViewHolder>(DIFF) {
 
     override fun getItemViewType(position: Int) = when (getItem(position)) {
@@ -50,12 +52,14 @@ class RowsAdapter(
         private val rvApps:         RecyclerView = view.findViewById(R.id.rvApps)
         private val btnRowSettings: ImageButton  = view.findViewById(R.id.btnRowSettings)
         private val btnDisplayMode: ImageButton  = view.findViewById(R.id.btnToggleDisplayMode)
+        private val btnIconSize:    ImageButton  = view.findViewById(R.id.btnIconSize)
         private val sidePanel:   View = view.findViewById(R.id.sidePanel)
         private val rowContent:  View = view.findViewById(R.id.rowContent)
         private val emptyState: View = view.findViewById(R.id.emptyState)
         private val tvEmptyMsg: android.widget.TextView = view.findViewById(R.id.tvEmptyMessage)
 
-        private var panelOpen = false
+        private var panelOpen   = false
+        private var isChannel   = false
 
         fun bind(item: RowItem) {
             val row = when (item) {
@@ -65,15 +69,23 @@ class RowsAdapter(
             val dp = itemView.resources.displayMetrics.density
 
             tvLabel.text = row.title
+            isChannel    = item is RowItem.ChannelRow
 
             panelOpen = false
-            sidePanel.translationX    = -96f * dp
-            rowContent.translationX   = 0f
-            sidePanel.visibility      = View.INVISIBLE
-            btnRowSettings.visibility = View.GONE
-            btnDisplayMode.visibility = View.GONE
+            sidePanel.translationX     = -136f * dp
+            rowContent.translationX    = 0f
+            sidePanel.visibility       = View.INVISIBLE
+            btnRowSettings.visibility  = View.GONE
+            btnDisplayMode.visibility  = View.GONE
+            btnIconSize.visibility     = View.GONE
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
+            btnIconSize.isFocusable    = false
+
+            // Apply row bottom spacing
+            val rowSpacingPx = (rowSpacingDp * dp).toInt()
+            (rowContent.layoutParams as? ViewGroup.MarginLayoutParams)
+                ?.bottomMargin = rowSpacingPx
 
             when (row.kind) {
                 RowKind.CHANNEL -> {
@@ -93,11 +105,24 @@ class RowsAdapter(
 
             btnRowSettings.setOnClickListener { onRowSettingsClick(row) }
             btnDisplayMode.setOnClickListener { onRowDisplayModeToggle(row) }
+            btnIconSize.setOnClickListener {
+                val sizes  = arrayOf("Global (default)", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
+                val labels = arrayOf<String?>(null, "S", "M", "L", "XL")
+                val current = labels.indexOfFirst { it == row.iconSizeLabelOverride }.coerceAtLeast(0)
+                android.app.AlertDialog.Builder(itemView.context)
+                    .setTitle("Icon Size")
+                    .setSingleChoiceItems(sizes, current) { dialog, which ->
+                        onRowSettingsClick(row.copy(iconSizeLabelOverride = labels[which]))
+                        dialog.dismiss()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
 
             val onBtnFocus = View.OnFocusChangeListener { _, hasFocus ->
                 if (!hasFocus) {
                     sidePanel.postDelayed({
-                        if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused) {
+                        if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnIconSize.isFocused) {
                             collapsePanel()
                         }
                     }, 100)
@@ -105,6 +130,7 @@ class RowsAdapter(
             }
             btnRowSettings.onFocusChangeListener = onBtnFocus
             btnDisplayMode.onFocusChangeListener = onBtnFocus
+            btnIconSize.onFocusChangeListener    = onBtnFocus
 
             when (item) {
                 is RowItem.CategoryRow -> bindCategory(item)
@@ -118,9 +144,17 @@ class RowsAdapter(
             val dp = itemView.resources.displayMetrics.density
             sidePanel.visibility       = View.VISIBLE
             btnRowSettings.visibility  = View.VISIBLE
-            btnDisplayMode.visibility  = View.VISIBLE
+            btnIconSize.visibility     = View.VISIBLE
             btnRowSettings.isFocusable = true
-            btnDisplayMode.isFocusable = true
+            btnIconSize.isFocusable    = true
+            // For category rows show display mode toggle; hide for channel rows
+            if (!isChannel) {
+                btnDisplayMode.visibility  = View.VISIBLE
+                btnDisplayMode.isFocusable = true
+            } else {
+                btnDisplayMode.visibility  = View.GONE
+                btnDisplayMode.isFocusable = false
+            }
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
             sidePanel.animate()
@@ -129,11 +163,12 @@ class RowsAdapter(
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
                     sidePanel.translationX = 0f
-                    btnRowSettings.post { btnRowSettings.requestFocus() }
+                    if (!isChannel) btnDisplayMode.post { btnDisplayMode.requestFocus() }
+                    else btnIconSize.post { btnIconSize.requestFocus() }
                 }
                 .start()
             rowContent.animate()
-                .translationX(96f * dp)
+                .translationX(136f * dp)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
@@ -145,16 +180,18 @@ class RowsAdapter(
             val dp = itemView.resources.displayMetrics.density
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
+            btnIconSize.isFocusable    = false
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
             sidePanel.animate()
-                .translationX(-96f * dp)
+                .translationX(-136f * dp)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
                     sidePanel.visibility      = View.INVISIBLE
                     btnRowSettings.visibility = View.GONE
                     btnDisplayMode.visibility = View.GONE
+                    btnIconSize.visibility    = View.GONE
                 }
                 .start()
             rowContent.animate()
@@ -162,6 +199,20 @@ class RowsAdapter(
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
+        }
+
+        private fun addItemSpacingDecoration() {
+            // Remove existing decorations before adding to avoid stacking on rebind
+            while (rvApps.itemDecorationCount > 0) rvApps.removeItemDecorationAt(0)
+            rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: android.graphics.Rect, view: View,
+                    parent: RecyclerView, state: RecyclerView.State
+                ) {
+                    val px = (itemSpacingDp * view.resources.displayMetrics.density).toInt()
+                    outRect.right = px
+                }
+            })
         }
 
         private fun bindCategory(item: RowItem.CategoryRow) {
@@ -189,6 +240,7 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
+            addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(true)
             adapter.submitList(item.apps)
@@ -220,12 +272,14 @@ class RowsAdapter(
                 iconSizeDp          = effectiveIconSize,
                 onClick             = onContentClick,
                 onLongClick         = onContentLongClick,
-                onFocused           = { onRowFocused(item.row.title) }
+                onFocused           = { onRowFocused(item.row.title) },
+                onLeftFromFirst     = { expandPanel() }
             )
             val paddingPx2 = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
             rvApps.setPadding(paddingPx2, 0, 0, 0)
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
+            addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
             adapter.submitList(item.content)

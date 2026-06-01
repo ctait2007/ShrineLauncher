@@ -24,7 +24,8 @@ class ChannelAdapter(
     private val iconSizeDp: Int = 88,
     private val onClick: (TvContent) -> Unit,
     private val onLongClick: (TvContent) -> Unit,
-    private val onFocused: () -> Unit
+    private val onFocused: () -> Unit,
+    private val onLeftFromFirst: (() -> Unit)? = null,
 ) : ListAdapter<TvContent, ChannelAdapter.VH>(DIFF) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
@@ -79,6 +80,15 @@ class ChannelAdapter(
             cardRoot.setOnLongClickListener { onLongClick(content); true }
             cardRoot.isFocusable = true
             cardRoot.isFocusableInTouchMode = false
+
+            cardRoot.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                    && event.action == android.view.KeyEvent.ACTION_DOWN
+                    && adapterPosition == 0) {
+                    onLeftFromFirst?.invoke()
+                    true
+                } else false
+            }
 
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()

@@ -159,11 +159,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun commitNav(index: Int) {
-        lastNavIndex = index
+        if (index == 1 && !appearanceDirty) appearanceSnapshot = repo.loadPrefs()
         showPanel(index)
-        if (index == 1) {
-            appearanceSnapshot = repo.loadPrefs()
-            appearanceDirty = false
+        // Move focus into the panel content
+        binding.rightPanel.post {
+            val panel = panels.getOrNull(index) ?: return@post
+            val firstFocusable = panel.findFocus()
+                ?: panel.focusSearch(android.view.View.FOCUS_DOWN)
+                ?: panel.getChildAt(0)
+            firstFocusable?.requestFocus()
         }
     }
 
@@ -484,6 +488,20 @@ class SettingsActivity : AppCompatActivity() {
             appearanceDirty = true
         })
 
+        binding.sbRowSpacing.progress = prefs.rowSpacingPercent
+        binding.tvRowSpacingValue.text = "${prefs.rowSpacingPercent}%"
+        binding.sbRowSpacing.setOnSeekBarChangeListener(seekListener {
+            binding.tvRowSpacingValue.text = "$it%"
+            appearanceDirty = true
+        })
+
+        binding.sbItemSpacing.progress = prefs.itemSpacingPercent
+        binding.tvItemSpacingValue.text = "${prefs.itemSpacingPercent}%"
+        binding.sbItemSpacing.setOnSeekBarChangeListener(seekListener {
+            binding.tvItemSpacingValue.text = "$it%"
+            appearanceDirty = true
+        })
+
         binding.switchClock.isChecked = prefs.clockEnabled
         binding.switchDate.isChecked  = prefs.dateEnabled
         binding.switch24h.isChecked   = prefs.clockFormat24h
@@ -509,6 +527,8 @@ class SettingsActivity : AppCompatActivity() {
             rowsBottomMarginPercent = binding.sbBottomMargin.progress,
             rowStartPaddingPercent  = binding.sbRowStartPadding.progress,
             rowStartPaddingDp       = startMarginDp,
+            rowSpacingPercent       = binding.sbRowSpacing.progress,
+            itemSpacingPercent      = binding.sbItemSpacing.progress,
             clockEnabled              = binding.switchClock.isChecked,
             dateEnabled               = binding.switchDate.isChecked,
             clockFormat24h            = binding.switch24h.isChecked,
@@ -519,8 +539,8 @@ class SettingsActivity : AppCompatActivity() {
 
     // ── Wallpaper ──────────────────────────────────────────────────────────────
 
-    private val slideshowIntervalValues = listOf(30, 60, 300, 600, 900, 1800)
-    private val slideshowIntervalLabels = listOf("30s", "1 min", "5 min", "10 min", "15 min", "30 min")
+    private val slideshowIntervalValues = listOf(30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360, 390, 420, 450, 480, 510, 540, 570, 600)
+    private val slideshowIntervalLabels = listOf("30s","1m","1m30s","2m","2m30s","3m","3m30s","4m","4m30s","5m","5m30s","6m","6m30s","7m","7m30s","8m","8m30s","9m","9m30s","10m")
 
     private fun saveSlideshow(uris: List<Uri>) {
         val persisted = uris.mapNotNull { uri ->
