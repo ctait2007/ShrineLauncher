@@ -138,13 +138,13 @@ class SettingsActivity : AppCompatActivity() {
                     else getColor(R.color.text_primary)
                 )
             }
-            // D-pad right from any nav item jumps to first focusable in the current panel
+            // D-pad right from any nav item enters the panel for that nav item
             if (index < panels.size) {
                 tv.setOnKeyListener { _, keyCode, event ->
                     if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
                             && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                        val panel = panels.getOrNull(lastNavIndex) ?: return@setOnKeyListener false
-                        findFirstFocusable(panel)?.requestFocus()
+                        lastNavIndex = index
+                        commitNav(index)
                         true
                     } else false
                 }

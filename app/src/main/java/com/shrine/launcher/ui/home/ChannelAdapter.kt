@@ -84,13 +84,23 @@ class ChannelAdapter(
             cardRoot.stateListAnimator = null
 
             cardRoot.setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN) when {
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && adapterPosition == 0 -> {
-                        onLeftFromFirst?.invoke(); true
+                if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (adapterPosition == 0) { onLeftFromFirst?.invoke(); true } else false
                     }
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && adapterPosition == itemCount - 1 -> true
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val rv = itemView.parent as? RecyclerView
+                        val lm = rv?.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
+                        val next = adapterPosition + 1
+                        if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
+                            lm.findViewByPosition(next)?.requestFocus()
+                                ?: rv.smoothScrollToPosition(next)
+                        }
+                        true
+                    }
                     else -> false
-                } else false
+                }
             }
 
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
@@ -103,17 +113,16 @@ class ChannelAdapter(
     }
 
     private fun applyCardBg(v: android.view.View, focused: Boolean) {
-        val density   = v.resources.displayMetrics.density
-        val cardPx    = 140 * density
-        val radius    = cardPx * (cornerRadiusPercent / 100f) * 0.5f
-        val strokePx  = if (focused) (3 * density).toInt() else 0
-        val strokeCol = if (focused) 0xFFFFFFFF.toInt() else 0x00000000
-        val bgColor   = 0xFF1E1E1E.toInt()
+        val density  = v.resources.displayMetrics.density
+        val cardPx   = (v.layoutParams?.height?.takeIf { it > 0 } ?: (120 * density).toInt()) * 1f
+        val radius   = cardPx * (cornerRadiusPercent / 100f) * 0.5f
+        val strokePx = if (focused) (3 * density).toInt() else 0
+        // Transparent fill so artwork is not obscured; stroke provides the focus ring
         val bg = android.graphics.drawable.GradientDrawable().apply {
             shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
-            setColor(bgColor)
+            setColor(0x00000000)
             cornerRadius = radius
-            setStroke(strokePx, strokeCol)
+            setStroke(strokePx, if (focused) 0xFFFFFFFF.toInt() else 0x00000000)
         }
         v.background      = bg
         v.clipToOutline   = true

@@ -96,8 +96,7 @@ class ContinueWatchingAdapter(
 
             cardRoot.setOnClickListener { onClick(entry) }
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
-                val scale = if (hasFocus) 1.1f else 1f
-                v.animate().scaleX(scale).scaleY(scale)
+                v.animate()
                     .translationZ(if (hasFocus) 8f else 0f)
                     .setDuration(120).start()
                 btnRemove.visibility = if (hasFocus) View.VISIBLE else View.GONE

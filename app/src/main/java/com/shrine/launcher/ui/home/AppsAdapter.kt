@@ -80,13 +80,23 @@ class AppsAdapter(
             cardRoot.stateListAnimator = null
 
             cardRoot.setOnKeyListener { _, keyCode, event ->
-                if (event.action == android.view.KeyEvent.ACTION_DOWN) when {
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT && adapterPosition == 0 -> {
-                        onLeftFromFirst?.invoke(); true
+                if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (adapterPosition == 0) { onLeftFromFirst?.invoke(); true } else false
                     }
-                    keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT && adapterPosition == itemCount - 1 -> true
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val rv = itemView.parent as? RecyclerView
+                        val lm = rv?.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
+                        val next = adapterPosition + 1
+                        if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
+                            lm.findViewByPosition(next)?.requestFocus()
+                                ?: rv.smoothScrollToPosition(next)
+                        }
+                        true // always consume right key
+                    }
                     else -> false
-                } else false
+                }
             }
 
             tvName.text = app.label
