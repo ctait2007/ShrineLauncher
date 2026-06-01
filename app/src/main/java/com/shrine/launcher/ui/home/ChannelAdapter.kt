@@ -46,6 +46,8 @@ class ChannelAdapter(
         fun bind(content: TvContent) {
             tvTitle.text    = content.title
             tvSubtitle.text = content.subtitle
+            tvTitle.visibility    = View.GONE
+            tvSubtitle.visibility = View.GONE
             applyCardBg(cardRoot, focused = false)
 
             if (content.durationMs > 0) {

@@ -110,14 +110,14 @@ class RowsAdapter(
                 rvApps.setOnKeyListener { _, keyCode, event ->
                     if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                         when (keyCode) {
-                            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                                // Block UP from leaving the row unless at explicit user navigation
-                                false
-                            }
                             android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
                                 val child = rvApps.focusedChild ?: return@setOnKeyListener false
                                 val pos   = rvApps.getChildAdapterPosition(child)
                                 if (pos == 0) { expandPanel(); true } else false
+                            }
+                            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                                // Let UP propagate only if explicitly pressed, not during fast scroll
+                                if (event.repeatCount > 0) true else false
                             }
                             else -> false
                         }
@@ -142,12 +142,22 @@ class RowsAdapter(
             btnDisplayMode.visibility  = View.VISIBLE
             btnRowSettings.isFocusable = true
             btnDisplayMode.isFocusable = true
-            android.util.Log.d("RowsAdapter", "expandPanel called")
-            sidePanel.animate().translationX(0f).setDuration(200)
+            sidePanel.clearAnimation()
+            rowContent.clearAnimation()
+            sidePanel.animate()
+                .translationX(0f)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
+                    sidePanel.translationX = 0f
                     btnRowSettings.post { btnRowSettings.requestFocus() }
-                }.start()
-            rowContent.animate().translationX(96f * dp).setDuration(200).start()
+                }
+                .start()
+            rowContent.animate()
+                .translationX(96f * dp)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
         }
 
         private fun collapsePanel() {
@@ -156,13 +166,23 @@ class RowsAdapter(
             val dp = itemView.resources.displayMetrics.density
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
-            sidePanel.animate().translationX(-96f * dp).setDuration(200)
+            sidePanel.clearAnimation()
+            rowContent.clearAnimation()
+            sidePanel.animate()
+                .translationX(-96f * dp)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
                     sidePanel.visibility      = View.INVISIBLE
                     btnRowSettings.visibility = View.GONE
                     btnDisplayMode.visibility = View.GONE
-                }.start()
-            rowContent.animate().translationX(0f).setDuration(200).start()
+                }
+                .start()
+            rowContent.animate()
+                .translationX(0f)
+                .setDuration(150)
+                .setInterpolator(android.view.animation.DecelerateInterpolator())
+                .start()
         }
 
         private fun bindCategory(item: RowItem.CategoryRow) {
@@ -189,6 +209,8 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
+            rvApps.isFocusable = false
+            rvApps.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(true)
             adapter.submitList(item.apps)

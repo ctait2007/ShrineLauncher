@@ -166,14 +166,14 @@
                         android:layout_weight="1" android:gravity="center"
                         android:text="Choose Image" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:textStyle="bold"
-                        android:focusable="true" android:background="@drawable/bg_btn_primary"
+                        android:focusable="true" android:background="@drawable/bg_btn_outline"
                         android:layout_marginEnd="8dp" />
                     <TextView android:id="@+id/btnClearWallpaper"
                         android:layout_width="0dp" android:layout_height="match_parent"
                         android:layout_weight="1" android:gravity="center"
-                        android:text="Clear" android:textColor="#EF5350"
+                        android:text="Clear" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:focusable="true"
-                        android:background="@drawable/bg_btn_secondary" />
+                        android:background="@drawable/bg_btn_outline" />
                 </LinearLayout>
 
                 <!-- Slideshow -->
@@ -191,14 +191,14 @@
                         android:layout_weight="1" android:gravity="center"
                         android:text="Choose Images" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:textStyle="bold"
-                        android:focusable="true" android:background="@drawable/bg_btn_primary"
+                        android:focusable="true" android:background="@drawable/bg_btn_outline"
                         android:layout_marginEnd="8dp" />
                     <TextView android:id="@+id/btnClearSlideshow"
                         android:layout_width="0dp" android:layout_height="match_parent"
                         android:layout_weight="1" android:gravity="center"
-                        android:text="Clear" android:textColor="#EF5350"
+                        android:text="Clear" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:focusable="true"
-                        android:background="@drawable/bg_btn_secondary" />
+                        android:background="@drawable/bg_btn_outline" />
                 </LinearLayout>
 
                 <TextView android:id="@+id/tvSlideshowCount"
@@ -268,14 +268,14 @@
                         android:layout_weight="1" android:gravity="center"
                         android:text="Export Config" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:textStyle="bold"
-                        android:focusable="true" android:background="@drawable/bg_btn_primary"
+                        android:focusable="true" android:background="@drawable/bg_btn_outline"
                         android:layout_marginEnd="8dp" />
                     <TextView android:id="@+id/btnImportConfig"
                         android:layout_width="0dp" android:layout_height="match_parent"
                         android:layout_weight="1" android:gravity="center"
-                        android:text="Import Config" android:textColor="@color/accent"
+                        android:text="Import Config" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:focusable="true"
-                        android:background="@drawable/bg_btn_secondary" />
+                        android:background="@drawable/bg_btn_outline" />
                 </LinearLayout>
 
                 <TextView style="@style/SettingsSectionHeading" android:text="Cloud / Share" />
@@ -290,14 +290,14 @@
                         android:layout_weight="1" android:gravity="center"
                         android:text="Share Config" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:textStyle="bold"
-                        android:focusable="true" android:background="@drawable/bg_btn_primary"
+                        android:focusable="true" android:background="@drawable/bg_btn_outline"
                         android:layout_marginEnd="8dp" />
                     <TextView android:id="@+id/btnCloudImport"
                         android:layout_width="0dp" android:layout_height="match_parent"
                         android:layout_weight="1" android:gravity="center"
-                        android:text="Paste Config" android:textColor="@color/accent"
+                        android:text="Paste Config" android:textColor="@color/text_primary"
                         android:textSize="14sp" android:focusable="true"
-                        android:background="@drawable/bg_btn_secondary" />
+                        android:background="@drawable/bg_btn_outline" />
                 </LinearLayout>
 
             </LinearLayout>

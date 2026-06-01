@@ -121,16 +121,23 @@ class SettingsActivity : AppCompatActivity() {
             tv.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) lastNavIndex = index
                 val isSelected = (index == lastNavIndex)
-                tv.background = if (hasFocus) {
+                if (hasFocus) {
                     val dp = tv.resources.displayMetrics.density
-                    android.graphics.drawable.GradientDrawable().apply {
+                    val bg = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        setColor(0x22FFFFFF.toInt())
-                        setStroke((2 * dp).toInt(), 0xFFFFFFFF.toInt())
+                        setColor(0x00000000)
+                        setStroke((2 * dp).toInt(), getColor(R.color.accent))
                         cornerRadius = 6 * dp
                     }
-                } else null
-                tv.setTextColor(if (isSelected) getColor(R.color.accent) else getColor(R.color.text_primary))
+                    tv.background = bg
+                    tv.setTextColor(getColor(R.color.accent))
+                } else {
+                    tv.setBackgroundResource(android.R.color.transparent)
+                    tv.setTextColor(
+                        if (isSelected) getColor(R.color.accent)
+                        else getColor(R.color.text_primary)
+                    )
+                }
             }
         }
         binding.btnBack.setOnClickListener {
@@ -165,19 +172,14 @@ class SettingsActivity : AppCompatActivity() {
         binding.rightPanel.setOnKeyListener { _, keyCode, event ->
             if (event.action == android.view.KeyEvent.ACTION_DOWN) {
                 when (keyCode) {
-                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (lastNavIndex == 1 && appearanceDirty) showUnsavedChangesDialog()
-                        else navItems.getOrNull(lastNavIndex)?.requestFocus()
-                        true
-                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT,
                     android.view.KeyEvent.KEYCODE_BACK -> {
                         if (lastNavIndex == 1 && appearanceDirty) {
                             showUnsavedChangesDialog()
-                            true
                         } else {
                             navItems.getOrNull(lastNavIndex)?.requestFocus()
-                            true
                         }
+                        true
                     }
                     else -> false
                 }

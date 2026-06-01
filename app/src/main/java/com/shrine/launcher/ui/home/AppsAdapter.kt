@@ -76,12 +76,11 @@ class AppsAdapter(
             cardRoot.isFocusable = true
             cardRoot.isFocusableInTouchMode = false
 
+            tvName.text = app.label
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
                 applyFocusBorder(focusBorderFrame, hasFocus, cornerRadiusPercent)
-                if (displayMode == CardDisplayMode.ICON) {
-                    tvName.visibility = if (hasFocus) View.VISIBLE else View.GONE
-                }
+                tvName.visibility = if (hasFocus) View.VISIBLE else View.GONE
                 cardRoot.animate()
                     .translationZ(if (hasFocus) 8f else 0f)
                     .setDuration(120).start()

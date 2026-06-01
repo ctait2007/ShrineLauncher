@@ -105,15 +105,30 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun dismissChannelContent(content: com.shrine.launcher.data.model.TvContent) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
-                val progId = content.id.toLongOrNull()
+                // ID may be plain long (WatchNext) or "channelId_programId" (PreviewProgram)
+                val rawId = content.id
+                val progId = if (rawId.contains("_")) {
+                    rawId.substringAfterLast("_").toLongOrNull()
+                } else {
+                    rawId.toLongOrNull()
+                }
                 if (progId != null) {
-                    getApplication<android.app.Application>().contentResolver.delete(
-                        androidx.tvprovider.media.tv.TvContractCompat.buildWatchNextProgramUri(progId),
-                        null, null
-                    )
+                    // Try WatchNext first
+                    try {
+                        getApplication<android.app.Application>().contentResolver.delete(
+                            androidx.tvprovider.media.tv.TvContractCompat.buildWatchNextProgramUri(progId),
+                            null, null
+                        )
+                    } catch (e: Exception) {
+                        // Try PreviewProgram
+                        getApplication<android.app.Application>().contentResolver.delete(
+                            androidx.tvprovider.media.tv.TvContractCompat.buildPreviewProgramUri(progId),
+                            null, null
+                        )
+                    }
                 }
             } catch (e: Exception) {
-                android.util.Log.w("HomeViewModel", "Could not delete WatchNext entry: ${e.message}")
+                android.util.Log.w("HomeViewModel", "Could not delete content entry: ${e.message}")
             }
             loadAll()
         }

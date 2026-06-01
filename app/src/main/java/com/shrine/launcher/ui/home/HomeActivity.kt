@@ -145,6 +145,8 @@ class HomeActivity : AppCompatActivity() {
             if (prefs == null) return@observe
             applyClock(prefs)
             applyBottomMargin(prefs)
+            setupRows()
+            rebuildRows()
             val uris = prefs.wallpaperUris
             val singleUri = prefs.wallpaperUri
             val allUris = when {
