@@ -21,6 +21,7 @@ import com.shrine.launcher.data.model.TvContent
 class ChannelAdapter(
     private val displayMode: CardDisplayMode = CardDisplayMode.BANNER,
     private val cornerRadiusPercent: Int = 50,
+    private val iconSizeDp: Int = 88,
     private val onClick: (TvContent) -> Unit,
     private val onLongClick: (TvContent) -> Unit,
     private val onFocused: () -> Unit
@@ -49,6 +50,13 @@ class ChannelAdapter(
             tvTitle.visibility    = View.GONE
             tvSubtitle.visibility = View.GONE
             applyCardBg(cardRoot, focused = false)
+
+            val density = cardRoot.resources.displayMetrics.density
+            val params = cardRoot.layoutParams
+            params.height = (iconSizeDp * density).toInt()
+            params.width  = ((iconSizeDp * 16f / 9f) * density).toInt()
+            cardRoot.layoutParams = params
+            cardRoot.requestLayout()
 
             if (content.durationMs > 0) {
                 progressBar.visibility = View.VISIBLE

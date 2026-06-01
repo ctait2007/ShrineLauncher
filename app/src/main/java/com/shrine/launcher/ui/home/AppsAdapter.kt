@@ -19,7 +19,8 @@ class AppsAdapter(
     private val iconSizeDp: Int = 88,
     private val onAppClick: (AppInfo) -> Unit,
     private val onAppLongClick: (AppInfo) -> Unit,
-    private val onFocused: () -> Unit
+    private val onFocused: () -> Unit,
+    private val onLeftFromFirst: (() -> Unit)? = null,
 ) : ListAdapter<AppInfo, AppsAdapter.AppViewHolder>(DIFF) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppViewHolder {
@@ -75,6 +76,15 @@ class AppsAdapter(
             cardRoot.setOnLongClickListener { onAppLongClick(app); true }
             cardRoot.isFocusable = true
             cardRoot.isFocusableInTouchMode = false
+
+            cardRoot.setOnKeyListener { _, keyCode, event ->
+                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
+                    && event.action == android.view.KeyEvent.ACTION_DOWN
+                    && adapterPosition == 0) {
+                    onLeftFromFirst?.invoke()
+                    true
+                } else false
+            }
 
             tvName.text = app.label
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->

@@ -106,27 +106,6 @@ class RowsAdapter(
             btnRowSettings.onFocusChangeListener = onBtnFocus
             btnDisplayMode.onFocusChangeListener = onBtnFocus
 
-            if (item is RowItem.CategoryRow) {
-                rvApps.setOnKeyListener { _, keyCode, event ->
-                    if (event.action == android.view.KeyEvent.ACTION_DOWN) {
-                        when (keyCode) {
-                            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                                val child = rvApps.focusedChild ?: return@setOnKeyListener false
-                                val pos   = rvApps.getChildAdapterPosition(child)
-                                if (pos == 0) { expandPanel(); true } else false
-                            }
-                            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
-                                // Let UP propagate only if explicitly pressed, not during fast scroll
-                                if (event.repeatCount > 0) true else false
-                            }
-                            else -> false
-                        }
-                    } else false
-                }
-            } else {
-                rvApps.setOnKeyListener(null)
-            }
-
             when (item) {
                 is RowItem.CategoryRow -> bindCategory(item)
                 is RowItem.ChannelRow  -> bindChannel(item)
@@ -203,14 +182,13 @@ class RowsAdapter(
                 iconSizeDp          = effectiveIconSize,
                 onAppClick          = onAppClick,
                 onAppLongClick      = onAppLongClick,
-                onFocused           = { onRowFocused(item.row.title) }
+                onFocused           = { onRowFocused(item.row.title) },
+                onLeftFromFirst     = { expandPanel() }
             )
             val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
-            rvApps.isFocusable = false
-            rvApps.descendantFocusability = android.view.ViewGroup.FOCUS_AFTER_DESCENDANTS
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(true)
             adapter.submitList(item.apps)
@@ -233,9 +211,13 @@ class RowsAdapter(
             rvApps.visibility     = View.VISIBLE
             emptyState.visibility = View.GONE
             itemView.visibility   = View.VISIBLE
+            val effectiveIconSize = item.row.iconSizeLabelOverride
+                ?.let { com.shrine.launcher.data.model.iconSizeDp(it) }
+                ?: iconSizeDp
             val adapter = ChannelAdapter(
                 displayMode         = item.row.cardDisplayMode,
                 cornerRadiusPercent = cornerRadiusPercent,
+                iconSizeDp          = effectiveIconSize,
                 onClick             = onContentClick,
                 onLongClick         = onContentLongClick,
                 onFocused           = { onRowFocused(item.row.title) }

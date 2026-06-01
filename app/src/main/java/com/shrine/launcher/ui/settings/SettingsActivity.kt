@@ -115,12 +115,11 @@ class SettingsActivity : AppCompatActivity() {
                     startActivity(Intent(this,
                         com.shrine.launcher.ui.installer.AppInstallerActivity::class.java))
                 } else {
+                    lastNavIndex = index
                     navigateTo(index)
                 }
             }
             tv.setOnFocusChangeListener { _, hasFocus ->
-                if (hasFocus) lastNavIndex = index
-                val isSelected = (index == lastNavIndex)
                 if (hasFocus) {
                     val dp = tv.resources.displayMetrics.density
                     val bg = android.graphics.drawable.GradientDrawable().apply {
@@ -130,14 +129,14 @@ class SettingsActivity : AppCompatActivity() {
                         cornerRadius = 6 * dp
                     }
                     tv.background = bg
-                    tv.setTextColor(getColor(R.color.accent))
                 } else {
                     tv.setBackgroundResource(android.R.color.transparent)
-                    tv.setTextColor(
-                        if (isSelected) getColor(R.color.accent)
-                        else getColor(R.color.text_primary)
-                    )
                 }
+                // Text color: accent only if this is the SELECTED item (lastNavIndex)
+                tv.setTextColor(
+                    if (index == lastNavIndex) getColor(R.color.accent)
+                    else getColor(R.color.text_primary)
+                )
             }
         }
         binding.btnBack.setOnClickListener {

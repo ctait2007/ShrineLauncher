@@ -103,35 +103,11 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun dismissChannelContent(content: com.shrine.launcher.data.model.TvContent) {
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                // ID may be plain long (WatchNext) or "channelId_programId" (PreviewProgram)
-                val rawId = content.id
-                val progId = if (rawId.contains("_")) {
-                    rawId.substringAfterLast("_").toLongOrNull()
-                } else {
-                    rawId.toLongOrNull()
-                }
-                if (progId != null) {
-                    // Try WatchNext first
-                    try {
-                        getApplication<android.app.Application>().contentResolver.delete(
-                            androidx.tvprovider.media.tv.TvContractCompat.buildWatchNextProgramUri(progId),
-                            null, null
-                        )
-                    } catch (e: Exception) {
-                        // Try PreviewProgram
-                        getApplication<android.app.Application>().contentResolver.delete(
-                            androidx.tvprovider.media.tv.TvContractCompat.buildPreviewProgramUri(progId),
-                            null, null
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                android.util.Log.w("HomeViewModel", "Could not delete content entry: ${e.message}")
-            }
-            loadAll()
-        }
+        // Remove from local live data immediately (optimistic update)
+        // TvProvider deletion requires signature permission we don't have
+        _continueWatching.value = _continueWatching.value?.filter { it.id != content.id }
+        _watchNext.value        = _watchNext.value?.filter { it.id != content.id }
+        _newForYou.value        = _newForYou.value?.filter { it.id != content.id }
     }
 
     fun removeContinueWatching(id: String) {
