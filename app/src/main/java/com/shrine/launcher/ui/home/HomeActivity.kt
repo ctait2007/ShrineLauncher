@@ -129,6 +129,8 @@ class HomeActivity : AppCompatActivity() {
             adapter = rowsAdapter
             setHasFixedSize(false)
             isFocusable = false
+            clipChildren = false
+            clipToPadding = false
         }
     }
 

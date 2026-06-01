@@ -58,8 +58,9 @@ class RowsAdapter(
         private val emptyState: View = view.findViewById(R.id.emptyState)
         private val tvEmptyMsg: android.widget.TextView = view.findViewById(R.id.tvEmptyMessage)
 
-        private var panelOpen   = false
-        private var isChannel   = false
+        private var panelOpen        = false
+        private var isChannel        = false
+        private var firstRowItemView: View? = null
 
         fun bind(item: RowItem) {
             val row = when (item) {
@@ -87,6 +88,7 @@ class RowsAdapter(
             (rowContent.layoutParams as? ViewGroup.MarginLayoutParams)
                 ?.bottomMargin = rowSpacingPx
             rowContent.requestLayout()
+            itemView.requestLayout()
 
             when (row.kind) {
                 RowKind.CHANNEL -> {
@@ -171,6 +173,9 @@ class RowsAdapter(
             if (panelOpen) return
             panelOpen = true
             val dp = itemView.resources.displayMetrics.density
+            // Store the first visible item so focus can return to it on close
+            firstRowItemView = (rvApps.layoutManager as? LinearLayoutManager)
+                ?.findViewByPosition(0)
             sidePanel.visibility       = View.VISIBLE
             btnRowSettings.visibility  = View.VISIBLE
             btnIconSize.visibility     = View.VISIBLE
@@ -192,8 +197,8 @@ class RowsAdapter(
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
                     sidePanel.translationX = 0f
-                    if (!isChannel) btnDisplayMode.post { btnDisplayMode.requestFocus() }
-                    else btnIconSize.post { btnIconSize.requestFocus() }
+                    // Always open with focus on the rightmost button (btnRowSettings)
+                    btnRowSettings.post { btnRowSettings.requestFocus() }
                 }
                 .start()
             rowContent.animate()
@@ -221,6 +226,10 @@ class RowsAdapter(
                     btnRowSettings.visibility = View.GONE
                     btnDisplayMode.visibility = View.GONE
                     btnIconSize.visibility    = View.GONE
+                    // Return focus to the first item of the active row
+                    val lm = rvApps.layoutManager as? LinearLayoutManager
+                    val target = lm?.findViewByPosition(0) ?: firstRowItemView
+                    target?.requestFocus()
                 }
                 .start()
             rowContent.animate()
@@ -267,6 +276,8 @@ class RowsAdapter(
             )
             val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
             rvApps.setPadding(paddingPx, 0, 0, 0)
+            rvApps.clipToPadding = false
+            rvApps.clipChildren = false
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
             addItemSpacingDecoration()
@@ -306,6 +317,8 @@ class RowsAdapter(
             )
             val paddingPx2 = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
             rvApps.setPadding(paddingPx2, 0, 0, 0)
+            rvApps.clipToPadding = false
+            rvApps.clipChildren = false
             rvApps.layoutManager =
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
             addItemSpacingDecoration()

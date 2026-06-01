@@ -50,20 +50,42 @@ class ChannelAdapter(
             tvSubtitle.text = content.subtitle
             tvTitle.visibility    = View.GONE
             tvSubtitle.visibility = View.GONE
-            applyCardBg(cardRoot, focused = false)
+            focusOverlay.visibility = View.GONE
 
+            // Size the card
             val density = cardRoot.resources.displayMetrics.density
+            val heightPx = (iconSizeDp * density).toInt()
+            val widthPx  = ((iconSizeDp * 16f / 9f) * density).toInt()
             val params = cardRoot.layoutParams
-            params.height = (iconSizeDp * density).toInt()
-            params.width  = ((iconSizeDp * 16f / 9f) * density).toInt()
+            params.height = heightPx
+            params.width  = widthPx
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
 
-            if (content.durationMs > 0 && content.progressMs > 0) {
-                progressBar.visibility = View.VISIBLE
-                progressBar.progress   = content.progressPercent
-            } else {
-                progressBar.visibility = View.GONE
+            // Set card background with rounded corners for artwork clipping.
+            // Use alpha=1 (0x01) so ViewOutlineProvider.BACKGROUND produces a valid outline.
+            val radius = heightPx * (cornerRadiusPercent / 100f) * 0.5f
+            val cardBg = android.graphics.drawable.GradientDrawable().apply {
+                shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0x011E1E1E.toInt()) // near-transparent — just enough for clipToOutline
+                cornerRadius = radius
+            }
+            cardRoot.background      = cardBg
+            cardRoot.clipToOutline   = true
+            cardRoot.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+
+            // Progress bar: show if we have a playback position
+            when {
+                content.durationMs > 0 && content.progressMs > 0 ->  {
+                    progressBar.visibility = View.VISIBLE
+                    progressBar.progress   = content.progressPercent
+                }
+                content.progressMs > 0 -> {
+                    // Have position but unknown duration — show minimum 10%
+                    progressBar.visibility = View.VISIBLE
+                    progressBar.progress   = 10
+                }
+                else -> progressBar.visibility = View.GONE
             }
 
             if (!content.artworkUri.isNullOrBlank()) {
@@ -105,28 +127,29 @@ class ChannelAdapter(
 
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
-                applyCardBg(v, focused = hasFocus)
+
+                // Draw focus border via focusOverlay (rendered ON TOP of artwork).
+                // Drawing on cardRoot.background is hidden under ivArtwork (match_parent).
+                if (hasFocus) {
+                    val d  = v.resources.displayMetrics.density
+                    val h  = v.layoutParams?.height?.takeIf { it > 0 } ?: heightPx
+                    val r  = h * (cornerRadiusPercent / 100f) * 0.5f
+                    focusOverlay.background = android.graphics.drawable.GradientDrawable().apply {
+                        shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        setColor(0x00000000)
+                        cornerRadius = r
+                        setStroke((3 * d).toInt(), 0xFFFFFFFF.toInt())
+                    }
+                    focusOverlay.visibility = View.VISIBLE
+                } else {
+                    focusOverlay.visibility = View.GONE
+                    focusOverlay.background = null
+                }
+
                 tvTitle.visibility    = if (hasFocus) View.VISIBLE else View.GONE
                 tvSubtitle.visibility = if (hasFocus) View.VISIBLE else View.GONE
             }
         }
-    }
-
-    private fun applyCardBg(v: android.view.View, focused: Boolean) {
-        val density  = v.resources.displayMetrics.density
-        val cardPx   = (v.layoutParams?.height?.takeIf { it > 0 } ?: (120 * density).toInt()) * 1f
-        val radius   = cardPx * (cornerRadiusPercent / 100f) * 0.5f
-        val strokePx = if (focused) (3 * density).toInt() else 0
-        // Transparent fill so artwork is not obscured; stroke provides the focus ring
-        val bg = android.graphics.drawable.GradientDrawable().apply {
-            shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
-            setColor(0x00000000)
-            cornerRadius = radius
-            setStroke(strokePx, if (focused) 0xFFFFFFFF.toInt() else 0x00000000)
-        }
-        v.background      = bg
-        v.clipToOutline   = true
-        v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
     }
 
     companion object {
