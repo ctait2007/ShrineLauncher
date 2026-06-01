@@ -547,21 +547,31 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyWallpaperAspectRatio() {
+        val w = binding.wallpaperFrame.width
+        if (w > 0) {
+            val params = binding.wallpaperFrame.layoutParams
+            val target = (w * 9f / 16f).toInt()
+            if (params.height != target) {
+                params.height = target
+                binding.wallpaperFrame.layoutParams = params
+            }
+        }
+    }
+
     private fun setupWallpaperPreviewAspectRatio() {
-        binding.wallpaperFrame.viewTreeObserver.addOnGlobalLayoutListener(
-            object : ViewTreeObserver.OnGlobalLayoutListener {
-                override fun onGlobalLayout() {
-                    binding.wallpaperFrame.viewTreeObserver.removeOnGlobalLayoutListener(this)
-                    val w = binding.wallpaperFrame.width
-                    if (w > 0) {
-                        val params = binding.wallpaperFrame.layoutParams
-                        params.height = (w * 9f / 16f).toInt()
-                        binding.wallpaperFrame.layoutParams = params
-                    }
-                    updateWallpaperPreview(repo.loadPrefs().wallpaperUri)
+        binding.wallpaperFrame.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
+            val w = right - left
+            if (w > 0) {
+                val target = (w * 9f / 16f).toInt()
+                val params = binding.wallpaperFrame.layoutParams
+                if (params.height != target) {
+                    params.height = target
+                    binding.wallpaperFrame.layoutParams = params
                 }
             }
-        )
+        }
+        updateWallpaperPreview(repo.loadPrefs().wallpaperUri)
         applyFocusOutline(binding.btnPickWallpaper)
         applyFocusOutline(binding.btnClearWallpaper)
         binding.btnPickWallpaper.setOnClickListener {
