@@ -486,7 +486,7 @@ class SettingsActivity : AppCompatActivity() {
             btn.setOnFocusChangeListener { v, hasFocus ->
                 val dp = v.resources.displayMetrics.density
                 v.layoutParams = v.layoutParams.also {
-                    it.height = ((if (hasFocus) 54 else 48) * dp).toInt()
+                    it.height = ((if (hasFocus) 52 else 48) * dp).toInt()
                 }
             }
         }

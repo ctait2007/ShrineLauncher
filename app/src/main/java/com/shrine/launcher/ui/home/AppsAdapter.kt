@@ -67,7 +67,12 @@ class AppsAdapter(
             focusBorderFrame.layoutParams = borderParams
             focusBorderFrame.requestLayout()
 
-            applyCornerRadius(cardRoot, cornerRadiusPercent)
+            // Banner cards are landscape (16:9); the global percent-of-height formula
+            // produces an outsized radius (e.g. 28dp at 50%) that clips into the artwork.
+            // Cap at 20% for banners, giving ≈11dp — appropriate for a landscape card.
+            val effectiveRadius = if (displayMode == CardDisplayMode.BANNER)
+                cornerRadiusPercent.coerceAtMost(20) else cornerRadiusPercent
+            applyCornerRadius(cardRoot, effectiveRadius)
 
             // GONE so unfocused items are exactly sizePx wide — no phantom gap from label
             tvName.visibility = View.GONE
