@@ -132,14 +132,7 @@ class SettingsActivity : AppCompatActivity() {
             binding.btnBack.setTextColor(if (hasFocus) getColor(R.color.accent)
                 else getColor(R.color.text_secondary))
         }
-        binding.rightPanel.setOnKeyListener { _, keyCode, event ->
-            if (event.action == android.view.KeyEvent.ACTION_DOWN &&
-                keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT) {
-                if (lastNavIndex == 1 && appearanceDirty) showUnsavedChangesDialog()
-                else navItems.getOrNull(lastNavIndex)?.requestFocus()
-                true
-            } else false
-        }
+        setupFocusContainment()
     }
 
     private fun navigateTo(index: Int) {
@@ -156,6 +149,27 @@ class SettingsActivity : AppCompatActivity() {
         if (index == 1) {
             appearanceSnapshot = repo.loadPrefs()
             appearanceDirty = false
+        }
+    }
+
+    private fun setupFocusContainment() {
+        binding.rightPanel.setOnKeyListener { _, keyCode, event ->
+            if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                when (keyCode) {
+                    android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                        if (lastNavIndex == 1 && appearanceDirty) showUnsavedChangesDialog()
+                        else navItems.getOrNull(lastNavIndex)?.requestFocus()
+                        true
+                    }
+                    android.view.KeyEvent.KEYCODE_BACK -> {
+                        if (lastNavIndex == 1 && appearanceDirty) {
+                            showUnsavedChangesDialog()
+                            true
+                        } else false
+                    }
+                    else -> false
+                }
+            } else false
         }
     }
 

@@ -52,6 +52,18 @@ class AppsAdapter(
             }
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
+            // Also update the outer border frame to match
+            val borderParams = focusBorderFrame.layoutParams
+            val borderPad = (6 * density).toInt()
+            if (displayMode == CardDisplayMode.ICON) {
+                borderParams.width  = sizePx + borderPad
+                borderParams.height = sizePx + borderPad
+            } else {
+                borderParams.height = sizePx + borderPad
+                borderParams.width  = (sizePx * 16f / 9f).toInt() + borderPad
+            }
+            focusBorderFrame.layoutParams = borderParams
+            focusBorderFrame.requestLayout()
 
             applyCornerRadius(cardRoot, cornerRadiusPercent)
 

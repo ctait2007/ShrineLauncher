@@ -134,8 +134,11 @@ class RowsAdapter(
             btnDisplayMode.visibility  = View.VISIBLE
             btnRowSettings.isFocusable = true
             btnDisplayMode.isFocusable = true
+            android.util.Log.d("RowsAdapter", "expandPanel called")
             sidePanel.animate().translationX(0f).setDuration(200)
-                .withEndAction { btnRowSettings.requestFocus() }.start()
+                .withEndAction {
+                    btnRowSettings.post { btnRowSettings.requestFocus() }
+                }.start()
             rowContent.animate().translationX(96f * dp).setDuration(200).start()
         }
 
