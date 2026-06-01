@@ -42,6 +42,9 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Write image assets
+        run: python3 .github/assets_setup.py
+
       - name: Build APK
         run: |
           ./gradlew assembleDebug --no-daemon --build-cache \
