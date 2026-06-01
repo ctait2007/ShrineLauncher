@@ -15,8 +15,23 @@ class PreferencesRepository(context: Context) {
 
     fun loadPrefs(): LauncherPrefs {
         val json = prefs.getString(KEY_PREFS, null) ?: return LauncherPrefs()
-        return try { gson.fromJson(json, LauncherPrefs::class.java) ?: LauncherPrefs() }
-        catch (e: Exception) { LauncherPrefs() }
+        val loaded = try { gson.fromJson(json, LauncherPrefs::class.java) ?: LauncherPrefs() }
+                     catch (e: Exception) { LauncherPrefs() }
+        // One-time migration: correct swapped channelType on the two default channel rows.
+        val fixedRows = loaded.rows.map { row ->
+            when (row.id) {
+                "row_continue_watching" ->
+                    if (row.channelType != ChannelType.CONTINUE_WATCHING)
+                        row.copy(channelType = ChannelType.CONTINUE_WATCHING)
+                    else row
+                "row_watch_next" ->
+                    if (row.channelType != ChannelType.WATCH_NEXT)
+                        row.copy(channelType = ChannelType.WATCH_NEXT)
+                    else row
+                else -> row
+            }
+        }
+        return if (fixedRows == loaded.rows) loaded else loaded.copy(rows = fixedRows)
     }
 
     fun savePrefs(p: LauncherPrefs) {

@@ -482,6 +482,14 @@ class SettingsActivity : AppCompatActivity() {
                 appearanceDirty = true
             }
         }
+        sizeButtons.forEach { (btn, _) ->
+            btn.setOnFocusChangeListener { v, hasFocus ->
+                val dp = v.resources.displayMetrics.density
+                v.layoutParams = v.layoutParams.also {
+                    it.height = ((if (hasFocus) 54 else 48) * dp).toInt()
+                }
+            }
+        }
 
         binding.sbCornerRadius.progress = prefs.cardCornerRadiusPercent / 10
         binding.tvCornerRadiusValue.text = "${prefs.cardCornerRadiusPercent}%"

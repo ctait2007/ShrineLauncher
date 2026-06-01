@@ -147,7 +147,7 @@ class AppsAdapter(
 
         private fun bindIcon(app: AppInfo) {
             ivIcon.setImageDrawable(app.icon)
-            ivIcon.scaleType = ImageView.ScaleType.FIT_XY
+            ivIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
 
         private fun bindBanner(app: AppInfo) {

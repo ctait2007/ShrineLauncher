@@ -9,6 +9,7 @@ import android.net.Uri
 import android.util.Log
 import androidx.tvprovider.media.tv.PreviewProgram
 import androidx.tvprovider.media.tv.TvContractCompat
+import androidx.tvprovider.media.tv.WatchNextProgram
 import com.shrine.launcher.data.model.ChannelType
 import com.shrine.launcher.data.model.TvContent
 import kotlinx.coroutines.Dispatchers
@@ -144,14 +145,18 @@ class TvContentRepository(private val context: Context) {
                     Log.d(TAG, "WatchNext cursor from $uri: ${c.count} rows")
                     while (c.moveToNext()) {
                         try {
-                            // Read progress and duration directly — bypasses any type-conversion
-                            // issues in WatchNextProgram.fromCursor() on modified Fire TV builds.
-                            val progressMs =
-                                c.getLong(
-                                    c.getColumnIndexOrThrow(
-                                        TvContractCompat.WatchNextPrograms.COLUMN_LAST_PLAYBACK_POSITION_MILLIS
-                                    )
+                            val program = WatchNextProgram.fromCursor(c)
+
+                            // Direct cursor read is the primary source; fall back to the
+                            // compiled-in helper if Fire TV's TvProvider returns 0 directly.
+                            val directProgress = c.getLong(
+                                c.getColumnIndex(
+                                    TvContractCompat.WatchNextPrograms.COLUMN_LAST_PLAYBACK_POSITION_MILLIS
                                 )
+                            )
+                            val progressMs = if (directProgress > 0) directProgress
+                                            else program.lastPlaybackPositionMillis.toLong()
+                                                .coerceAtLeast(0L)
 
                             val durationMs =
                                 c.getLong(
