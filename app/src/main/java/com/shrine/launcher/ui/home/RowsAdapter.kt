@@ -258,10 +258,9 @@ class RowsAdapter(
 
         private fun addItemSpacingDecoration() {
             rvApps.runCatching { removeItemDecorationAt(0) }
-            // Category rows have an inherent 6dp gap between cards (3dp focusBorderFrame
-            // padding on each side). We compensate so that 0% spacing means truly touching.
-            // Channel rows have no inherent gap, so no compensation is needed.
-            val inherentGapDp = if (isChannel) 0 else 6
+            // focusBorderFrame now has 0 padding so there is no inherent gap in either
+            // category or channel rows — item spacing maps directly to decoration offset.
+            val inherentGapDp = 0
             rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
                 override fun getItemOffsets(
                     outRect: android.graphics.Rect, view: View,

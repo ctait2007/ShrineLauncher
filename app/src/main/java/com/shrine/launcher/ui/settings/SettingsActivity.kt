@@ -6,7 +6,6 @@ import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
 import android.view.View
-import android.view.ViewTreeObserver
 import android.widget.*
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -590,30 +589,8 @@ class SettingsActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyWallpaperAspectRatio() {
-        val w = binding.wallpaperFrame.width
-        if (w > 0) {
-            val params = binding.wallpaperFrame.layoutParams
-            val target = (w * 9f / 16f).toInt()
-            if (params.height != target) {
-                params.height = target
-                binding.wallpaperFrame.layoutParams = params
-            }
-        }
-    }
-
     private fun setupWallpaperPreviewAspectRatio() {
-        binding.wallpaperFrame.addOnLayoutChangeListener { _, left, _, right, _, _, _, _, _ ->
-            val w = right - left
-            if (w > 0) {
-                val target = (w * 9f / 16f).toInt()
-                val params = binding.wallpaperFrame.layoutParams
-                if (params.height != target) {
-                    params.height = target
-                    binding.wallpaperFrame.layoutParams = params
-                }
-            }
-        }
+        // wallpaperFrame height is fixed in XML (220dp) — no dynamic calculation needed.
         repo.loadPrefs().let { p ->
             updateWallpaperPreview(p.wallpaperUri ?: p.wallpaperUris.firstOrNull())
         }
@@ -730,11 +707,11 @@ class SettingsActivity : AppCompatActivity() {
             val dp = fv.resources.displayMetrics.density
             fv.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                setColor(0x00000000)
-                setStroke(
-                    if (hasFocus) (3 * dp).toInt() else (1 * dp).toInt(),
-                    if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt()
-                )
+                // Same 2dp stroke width keeps the box the same visual size in both states.
+                // A filled tint distinguishes focused without making the box appear smaller.
+                setColor(if (hasFocus) 0x22E53935.toInt() else 0x00000000)
+                setStroke((2 * dp).toInt(),
+                    if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                 cornerRadius = 8 * dp
             }
         }

@@ -53,14 +53,16 @@ class AppsAdapter(
             }
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
+            // focusBorderFrame is exactly the same size as cardRoot — no extra padding.
+            // The focus ring is drawn via cardRoot.overlay so it appears above the icon
+            // without adding any extra space between items.
             val borderParams = focusBorderFrame.layoutParams
-            val pad = (6 * density).toInt()
             if (displayMode == CardDisplayMode.ICON) {
-                borderParams.width  = sizePx + pad
-                borderParams.height = sizePx + pad
+                borderParams.width  = sizePx
+                borderParams.height = sizePx
             } else {
-                borderParams.height = sizePx + pad
-                borderParams.width  = (sizePx * 16f / 9f).toInt() + pad
+                borderParams.height = sizePx
+                borderParams.width  = (sizePx * 16f / 9f).toInt()
             }
             focusBorderFrame.layoutParams = borderParams
             focusBorderFrame.requestLayout()
@@ -102,7 +104,7 @@ class AppsAdapter(
             tvName.text = app.label
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
-                applyFocusBorder(focusBorderFrame, hasFocus, cornerRadiusPercent)
+                applyFocusBorderOverlay(v, hasFocus, cornerRadiusPercent)
                 tvName.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
             }
         }
@@ -122,22 +124,27 @@ class AppsAdapter(
             v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
         }
 
-        private fun applyFocusBorder(v: View, focused: Boolean, radiusPct: Int) {
+        private fun applyFocusBorderOverlay(v: View, focused: Boolean, radiusPct: Int) {
+            v.overlay.clear()
+            if (!focused) return
+            val w = v.width
+            val h = v.height
+            if (w <= 0 || h <= 0) {
+                // View not laid out yet — defer until it is
+                v.post { applyFocusBorderOverlay(v, true, radiusPct) }
+                return
+            }
             val density  = v.resources.displayMetrics.density
-            val innerH   = cardRoot.layoutParams?.height?.takeIf { it > 0 }
-                ?: (iconSizeDp * density).toInt()
-            val outerH   = innerH + (6 * density).toInt()
-            val radius   = outerH * (radiusPct / 100f) * 0.5f + (3 * density)
-            val strokePx = if (focused) (3 * density).toInt() else 0
-
-            val bg = GradientDrawable().apply {
+            val radius   = h * (radiusPct / 100f) * 0.5f
+            val strokePx = (3 * density).toInt()
+            val drawable = GradientDrawable().apply {
                 shape        = GradientDrawable.RECTANGLE
                 setColor(0x00000000)
                 cornerRadius = radius
-                setStroke(strokePx,
-                    if (focused) 0xFFFFFFFF.toInt() else 0x00000000)
+                setStroke(strokePx, 0xFFFFFFFF.toInt())
             }
-            v.background = bg
+            drawable.setBounds(0, 0, w, h)
+            v.overlay.add(drawable)
         }
 
         private fun bindIcon(app: AppInfo) {

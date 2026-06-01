@@ -25,13 +25,11 @@
             android:id="@+id/pbChannelProgress"
             style="@android:style/Widget.ProgressBar.Horizontal"
             android:layout_width="match_parent"
-            android:layout_height="3dp"
+            android:layout_height="4dp"
             android:layout_gravity="bottom"
-            android:progressTint="@color/accent"
-            android:progressBackgroundTint="#44FFFFFF"
             android:max="100"
             android:progress="0"
-            android:visibility="invisible" />
+            android:visibility="gone" />
 
         <View
             android:id="@+id/channelFocusOverlay"

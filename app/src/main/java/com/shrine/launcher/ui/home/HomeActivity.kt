@@ -200,17 +200,24 @@ class HomeActivity : AppCompatActivity() {
     private fun setInitialRowFocus() {
         val lm = binding.rvRows.layoutManager as? LinearLayoutManager ?: return
         val list = rowsAdapter.currentList
-        val appsRvId  = com.shrine.launcher.R.id.rvApps
+        val appsRvId   = com.shrine.launcher.R.id.rvApps
         val cardRootId = com.shrine.launcher.R.id.cardRoot
         for (i in list.indices) {
-            if (list[i] !is RowItem.CategoryRow) continue
+            val item = list[i]
+            // Only target non-empty category rows
+            if (item !is RowItem.CategoryRow || item.apps.isEmpty()) continue
             val rowView = lm.findViewByPosition(i) ?: continue
-            val rvApps = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId) ?: continue
+            val rvApps  = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId)
+                ?: continue
+            if (rvApps.visibility != android.view.View.VISIBLE) continue
             val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
             val firstItem = innerLm.findViewByPosition(0) ?: continue
-            (firstItem.findViewById<android.view.View>(cardRootId) ?: firstItem).requestFocus()
-            return
+            val card = firstItem.findViewById<android.view.View>(cardRootId) ?: firstItem
+            card.requestFocus()
+            return  // success — leave initialFocusSet = true
         }
+        // Apps not loaded yet (row is empty) — allow next rebuild to retry
+        initialFocusSet = false
     }
 
     // ── Wallpaper / Slideshow ──────────────────────────────────────────────────

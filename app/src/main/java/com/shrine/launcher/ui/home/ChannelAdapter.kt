@@ -84,25 +84,36 @@ class ChannelAdapter(
                 "progressMs=${content.progressMs} durationMs=${content.durationMs} " +
                 "progressPercent=${content.progressPercent}")
 
-            // Progress bar: show whenever we have a playback position, or for any
-            // Continue Watching content (which by definition has been started).
-            when {
-                content.durationMs > 0 && content.progressMs > 0 -> {
-                    progressBar.visibility = View.VISIBLE
-                    progressBar.progress   = content.progressPercent
-                }
-                content.progressMs > 0 -> {
-                    // Known position but unknown duration — show minimum 10%
-                    progressBar.visibility = View.VISIBLE
-                    progressBar.progress   = 10
-                }
-                content.channelType == ChannelType.CONTINUE_WATCHING -> {
-                    // Content is in Continue Watching: user was watching it even if
-                    // the app didn't populate COLUMN_LAST_PLAYBACK_POSITION_TIME_MILLIS
-                    progressBar.visibility = View.VISIBLE
-                    progressBar.progress   = 10
-                }
-                else -> progressBar.visibility = View.GONE
+            // Build a reliable progress drawable — XML progressTint is ignored on some
+            // Fire TV builds. LayerDrawable + ClipDrawable works on all versions.
+            val progressFill = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0xFFE53935.toInt())
+            }
+            val progressTrack = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0x44FFFFFF)
+            }
+            val clip = android.graphics.drawable.ClipDrawable(
+                progressFill, android.view.Gravity.START,
+                android.graphics.drawable.ClipDrawable.HORIZONTAL
+            )
+            val ld = android.graphics.drawable.LayerDrawable(arrayOf(progressTrack, clip))
+            ld.setId(0, android.R.id.background)
+            ld.setId(1, android.R.id.progress)
+            progressBar.progressDrawable = ld
+
+            val progressValue = when {
+                content.durationMs > 0 && content.progressMs > 0 -> content.progressPercent
+                content.progressMs > 0 -> 10
+                content.channelType == ChannelType.CONTINUE_WATCHING -> 10
+                else -> -1
+            }
+            if (progressValue >= 0) {
+                progressBar.progress   = progressValue
+                progressBar.visibility = View.VISIBLE
+            } else {
+                progressBar.visibility = View.GONE
             }
 
             if (!content.artworkUri.isNullOrBlank()) {
