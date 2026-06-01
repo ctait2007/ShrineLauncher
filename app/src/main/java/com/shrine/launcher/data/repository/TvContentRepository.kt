@@ -152,7 +152,7 @@ class TvContentRepository(private val context: Context) {
         packageName = packageName ?: "",
         deepLinkUri = intentUri?.toString(),
         artworkUri  = (posterArtUri ?: thumbnailUri)?.toString(),
-        progressMs  = lastPlaybackPositionMillis,
+        progressMs  = lastPlaybackPositionMillis.toLong(),
         durationMs  = durationMillis.toLong(),
         channelType = type
     )
