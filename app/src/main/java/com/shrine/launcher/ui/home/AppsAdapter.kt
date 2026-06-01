@@ -52,15 +52,14 @@ class AppsAdapter(
             }
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
-            // Also update the outer border frame to match
             val borderParams = focusBorderFrame.layoutParams
-            val borderPad = (6 * density).toInt()
+            val pad = (6 * density).toInt()
             if (displayMode == CardDisplayMode.ICON) {
-                borderParams.width  = sizePx + borderPad
-                borderParams.height = sizePx + borderPad
+                borderParams.width  = sizePx + pad
+                borderParams.height = sizePx + pad
             } else {
-                borderParams.height = sizePx + borderPad
-                borderParams.width  = (sizePx * 16f / 9f).toInt() + borderPad
+                borderParams.height = sizePx + pad
+                borderParams.width  = (sizePx * 16f / 9f).toInt() + pad
             }
             focusBorderFrame.layoutParams = borderParams
             focusBorderFrame.requestLayout()

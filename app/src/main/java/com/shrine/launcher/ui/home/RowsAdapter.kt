@@ -108,11 +108,19 @@ class RowsAdapter(
 
             if (item is RowItem.CategoryRow) {
                 rvApps.setOnKeyListener { _, keyCode, event ->
-                    if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_LEFT
-                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                        val child = rvApps.focusedChild ?: return@setOnKeyListener false
-                        val pos   = rvApps.getChildAdapterPosition(child)
-                        if (pos == 0) { expandPanel(); true } else false
+                    if (event.action == android.view.KeyEvent.ACTION_DOWN) {
+                        when (keyCode) {
+                            android.view.KeyEvent.KEYCODE_DPAD_UP -> {
+                                // Block UP from leaving the row unless at explicit user navigation
+                                false
+                            }
+                            android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
+                                val child = rvApps.focusedChild ?: return@setOnKeyListener false
+                                val pos   = rvApps.getChildAdapterPosition(child)
+                                if (pos == 0) { expandPanel(); true } else false
+                            }
+                            else -> false
+                        }
                     } else false
                 }
             } else {

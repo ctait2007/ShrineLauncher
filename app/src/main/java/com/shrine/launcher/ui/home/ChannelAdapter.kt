@@ -73,6 +73,8 @@ class ChannelAdapter(
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
                 applyCardBg(v, focused = hasFocus)
+                tvTitle.visibility    = if (hasFocus) View.VISIBLE else View.GONE
+                tvSubtitle.visibility = if (hasFocus) View.VISIBLE else View.GONE
                 v.animate()
                     .translationZ(if (hasFocus) 8f else 0f)
                     .setDuration(120).start()

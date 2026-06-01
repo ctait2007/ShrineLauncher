@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:clipChildren="false"
-    android:clipToPadding="false">
+    android:clipToPadding="false"
+    android:overScrollMode="never">
 
-    <!-- Main content: shifts right when panel opens via translationX -->
     <LinearLayout
         android:id="@+id/rowContent"
         android:layout_width="match_parent"
@@ -53,7 +53,8 @@
             android:layout_height="wrap_content"
             android:paddingEnd="24dp"
             android:clipToPadding="false"
-            android:overScrollMode="never" />
+            android:overScrollMode="never"
+            android:descendantFocusability="afterDescendants" />
 
         <LinearLayout
             android:id="@+id/emptyState"
@@ -75,18 +76,18 @@
         </LinearLayout>
     </LinearLayout>
 
-    <!-- Side panel: fixed width, hidden left of screen, slides in via translationX -->
     <LinearLayout
         android:id="@+id/sidePanel"
         android:layout_width="96dp"
         android:layout_height="match_parent"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        android:background="#0D0D0D"
+        android:background="#EE0D0D0D"
+        android:elevation="16dp"
         android:translationX="-96dp"
         android:visibility="invisible"
-        android:elevation="8dp"
-        android:clipChildren="false">
+        android:clipChildren="false"
+        android:layout_gravity="start">
 
         <ImageButton
             android:id="@+id/btnRowSettings"
@@ -98,7 +99,7 @@
             android:contentDescription="Row settings"
             android:focusable="false"
             android:padding="6dp"
-            android:layout_marginStart="4dp"
+            android:layout_marginStart="8dp"
             android:layout_marginEnd="4dp" />
 
         <ImageButton
@@ -111,7 +112,6 @@
             android:contentDescription="Toggle icon/banner"
             android:focusable="false"
             android:padding="6dp" />
-
     </LinearLayout>
 
 </FrameLayout>

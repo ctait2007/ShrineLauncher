@@ -120,8 +120,17 @@ class SettingsActivity : AppCompatActivity() {
             }
             tv.setOnFocusChangeListener { _, hasFocus ->
                 if (hasFocus) lastNavIndex = index
-                tv.setTextColor(if (hasFocus) getColor(R.color.accent)
-                    else getColor(R.color.text_primary))
+                val isSelected = (index == lastNavIndex)
+                tv.background = if (hasFocus) {
+                    val dp = tv.resources.displayMetrics.density
+                    android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        setColor(0x22FFFFFF.toInt())
+                        setStroke((2 * dp).toInt(), 0xFFFFFFFF.toInt())
+                        cornerRadius = 6 * dp
+                    }
+                } else null
+                tv.setTextColor(if (isSelected) getColor(R.color.accent) else getColor(R.color.text_primary))
             }
         }
         binding.btnBack.setOnClickListener {
@@ -165,7 +174,10 @@ class SettingsActivity : AppCompatActivity() {
                         if (lastNavIndex == 1 && appearanceDirty) {
                             showUnsavedChangesDialog()
                             true
-                        } else false
+                        } else {
+                            navItems.getOrNull(lastNavIndex)?.requestFocus()
+                            true
+                        }
                     }
                     else -> false
                 }
@@ -179,10 +191,8 @@ class SettingsActivity : AppCompatActivity() {
             panel.visibility = if (i == index) View.VISIBLE else View.GONE
         }
         navItems.forEachIndexed { i, tv ->
-            tv.setBackgroundResource(
-                if (i == index) R.drawable.bg_focused_item
-                else android.R.color.transparent
-            )
+            tv.setBackgroundResource(android.R.color.transparent)
+            tv.setTextColor(if (i == index) getColor(R.color.accent) else getColor(R.color.text_primary))
         }
     }
 
