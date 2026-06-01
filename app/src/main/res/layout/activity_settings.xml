@@ -163,7 +163,7 @@
                 <!-- Wallpaper -->
                 <TextView style="@style/SettingsSectionHeading" android:text="Wallpaper" />
 
-                <FrameLayout android:layout_width="match_parent" android:layout_height="220dp"
+                <FrameLayout android:layout_width="match_parent" android:layout_height="180dp"
                     android:layout_marginBottom="12dp" android:background="#111111"
                     android:id="@+id/wallpaperFrame">
                     <ImageView android:id="@+id/ivWallpaperPreview"

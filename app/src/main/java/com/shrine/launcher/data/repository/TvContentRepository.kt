@@ -9,7 +9,6 @@ import android.net.Uri
 import android.util.Log
 import androidx.tvprovider.media.tv.PreviewProgram
 import androidx.tvprovider.media.tv.TvContractCompat
-import androidx.tvprovider.media.tv.WatchNextProgram
 import com.shrine.launcher.data.model.ChannelType
 import com.shrine.launcher.data.model.TvContent
 import kotlinx.coroutines.Dispatchers
@@ -55,39 +54,56 @@ class TvContentRepository(private val context: Context) {
     suspend fun getAllChannels(): List<Pair<String, List<TvContent>>> =
         withContext(Dispatchers.IO) { queryChannelsWithPrograms() }
 
-    // ── FIX 1 + 2 + 3 + 4 + 5: Combined query ────────────────────────────────
+    // ── Raw cursor row (avoids WatchNextProgram.fromCursor parsing bugs) ─────────
+
+    private data class RawWatchNext(
+        val id: String,
+        val title: String,
+        val subtitle: String?,
+        val packageName: String,
+        val intentUri: String?,
+        val artworkUri: String?,
+        val progressMs: Long,
+        val durationMs: Long,
+        val watchNextType: Int
+    )
+
+    // ── Combined query ────────────────────────────────────────────────────────
 
     private fun queryCombined(type: ChannelType): List<TvContent> {
-        // Step 1: Try WatchNext (all records, no type filter)
         val watchNext = queryWatchNextAll()
 
-        // FIX 3: Log every record so we can see what's in the database
-        watchNext.forEach { program ->
-            Log.d(TAG, "WN: pkg=${program.packageName} | " +
-                "title=${program.title} | " +
-                "type=${program.watchNextType} | " +
-                "browsable=${program.isBrowsable}")
+        watchNext.forEach { row ->
+            Log.d(TAG, "WN: pkg=${row.packageName} | title=${row.title} | " +
+                "type=${row.watchNextType} | progressMs=${row.progressMs} | durationMs=${row.durationMs}")
         }
 
-        // FIX 1: Categorize AFTER retrieval instead of filtering in SQL
         val filtered = when (type) {
-            ChannelType.CONTINUE_WATCHING -> watchNext.filter { program ->
-                // Accept CONTINUE type, OR accept entries with no type set (-1)
-                // since many apps don't set WATCH_NEXT_TYPE_CONTINUE explicitly
-                program.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
-                    || program.watchNextType == -1
-                    || program.watchNextType == -1  // unset/unknown type
+            ChannelType.CONTINUE_WATCHING -> watchNext.filter { row ->
+                row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
+                    || row.watchNextType == -1
             }
-            ChannelType.WATCH_NEXT -> watchNext.filter { program ->
-                program.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
+            ChannelType.WATCH_NEXT -> watchNext.filter { row ->
+                row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
             }
             else -> watchNext
-        }.map { it.toTvContent(type) }
+        }.map { row ->
+            TvContent(
+                id          = row.id,
+                title       = row.title,
+                subtitle    = row.subtitle?.ifBlank { appLabel(row.packageName) }
+                                ?: appLabel(row.packageName),
+                packageName = row.packageName,
+                deepLinkUri = row.intentUri,
+                artworkUri  = row.artworkUri,
+                progressMs  = row.progressMs,
+                durationMs  = row.durationMs,
+                channelType = type
+            )
+        }
 
         Log.d(TAG, "WatchNext[$type]: ${filtered.size} after type filter (${watchNext.size} total)")
 
-        // FIX 2: If WatchNext has content, great. If not, try PreviewPrograms as fallback
-        // FIX 4: PreviewPrograms fallback instead of local launcher data
         val combined = if (filtered.isNotEmpty()) {
             filtered
         } else {
@@ -95,15 +111,14 @@ class TvContentRepository(private val context: Context) {
             queryAllPreviewPrograms(type)
         }
 
-        // Cursor already sorted by COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS DESC; no re-sort needed
         val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
         return combined.filter { it.id !in dismissed }
     }
 
-    // ── Watch Next: query ALL records without type filter ─────────────────────
+    // ── Watch Next: read fields directly from cursor ──────────────────────────
 
-    private fun queryWatchNextAll(): List<WatchNextProgram> {
-        val results = mutableListOf<WatchNextProgram>()
+    private fun queryWatchNextAll(): List<RawWatchNext> {
+        val results = mutableListOf<RawWatchNext>()
 
         val uris = listOf(
             TvContractCompat.WatchNextPrograms.CONTENT_URI,
@@ -113,12 +128,8 @@ class TvContentRepository(private val context: Context) {
 
         for (uri in uris) {
             try {
-                // FIX 1: NO selection filter on WATCH_NEXT_TYPE — get everything
                 val cursor: Cursor = cr.query(
-                    uri,
-                    null,   // all columns
-                    null,   // no WHERE clause
-                    null,
+                    uri, null, null, null,
                     "${TvContractCompat.WatchNextPrograms.COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS} DESC"
                 ) ?: continue
 
@@ -126,14 +137,50 @@ class TvContentRepository(private val context: Context) {
                     Log.d(TAG, "WatchNext cursor from $uri: ${c.count} rows")
                     while (c.moveToNext()) {
                         try {
-                            results.add(WatchNextProgram.fromCursor(c))
+                            // Read progress and duration directly — bypasses any type-conversion
+                            // issues in WatchNextProgram.fromCursor() on modified Fire TV builds.
+                            val progressMs =
+                                c.getLong(
+                                    c.getColumnIndexOrThrow(
+                                        TvContractCompat.WatchNextPrograms.COLUMN_LAST_PLAYBACK_POSITION_MILLIS
+                                    )
+                                )
+
+                            val durationMs =
+                                c.getLong(
+                                    c.getColumnIndexOrThrow(
+                                        TvContractCompat.PreviewPrograms.COLUMN_DURATION_MILLIS
+                                    )
+                                )
+
+                            val id = c.safeString("_id") ?: continue
+                            val title = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_TITLE)
+                                ?: "(no title)"
+                            val subtitle = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_SHORT_DESCRIPTION)
+                            val pkg = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_PACKAGE_NAME) ?: ""
+                            val intentUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_INTENT_URI)
+                            val posterUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI)
+                            val thumbUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_THUMBNAIL_URI)
+                            val watchNextType = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
+
+                            results.add(RawWatchNext(
+                                id           = id,
+                                title        = title,
+                                subtitle     = subtitle,
+                                packageName  = pkg,
+                                intentUri    = intentUri,
+                                artworkUri   = posterUri ?: thumbUri,
+                                progressMs   = progressMs,
+                                durationMs   = durationMs,
+                                watchNextType = watchNextType
+                            ))
                         } catch (e: Exception) {
                             Log.w(TAG, "Skipping malformed WatchNext row: ${e.message}")
                         }
                     }
                 }
 
-                if (results.isNotEmpty()) break  // stop at first URI that returns data
+                if (results.isNotEmpty()) break
             } catch (se: SecurityException) {
                 Log.w(TAG, "SecurityException on WatchNext $uri: ${se.message}")
             } catch (e: Exception) {
@@ -143,19 +190,15 @@ class TvContentRepository(private val context: Context) {
         return results
     }
 
-    // ── WatchNextProgram → TvContent ──────────────────────────────────────────
+    private fun Cursor.safeString(col: String): String? {
+        val idx = getColumnIndex(col)
+        return if (idx >= 0) getString(idx) else null
+    }
 
-    private fun WatchNextProgram.toTvContent(type: ChannelType) = TvContent(
-        id          = id.toString(),
-        title       = title ?: "(no title)",
-        subtitle    = description?.ifBlank { appLabel(packageName ?: "") } ?: appLabel(packageName ?: ""),
-        packageName = packageName ?: "",
-        deepLinkUri = intentUri?.toString(),
-        artworkUri  = (posterArtUri ?: thumbnailUri)?.toString(),
-        progressMs  = lastPlaybackPositionMillis.toLong(),
-        durationMs  = durationMillis.toLong(),
-        channelType = type
-    )
+    private fun Cursor.safeInt(col: String, default: Int = -1): Int {
+        val idx = getColumnIndex(col)
+        return if (idx >= 0) getInt(idx) else default
+    }
 
     // ── FIX 2: PreviewPrograms — merges continue watching from all apps ────────
 

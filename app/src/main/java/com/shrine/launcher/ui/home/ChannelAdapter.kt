@@ -66,9 +66,11 @@ class ChannelAdapter(
             // Clip only the artwork to rounded corners so the progress bar and focus
             // overlay aren't cut off by the outline.
             val radius = heightPx * (cornerRadiusPercent / 100f) * 0.5f
+            // Fully opaque background required so ViewOutlineProvider.BACKGROUND
+            // produces a valid outline and clipToOutline actually clips the artwork.
             val roundedBg = android.graphics.drawable.GradientDrawable().apply {
                 shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
-                setColor(0x011E1E1E.toInt())
+                setColor(0xFF1E1E1E.toInt())
                 cornerRadius = radius
             }
             ivArtwork.background      = roundedBg

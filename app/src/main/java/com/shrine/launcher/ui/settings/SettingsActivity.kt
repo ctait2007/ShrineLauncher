@@ -590,7 +590,23 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun setupWallpaperPreviewAspectRatio() {
-        // wallpaperFrame height is fixed in XML (220dp) — no dynamic calculation needed.
+        // One-shot layout listener: fires once after the frame's width is known,
+        // sets height = width × 9/16, then removes itself to avoid re-triggering.
+        binding.wallpaperFrame.viewTreeObserver.addOnGlobalLayoutListener(
+            object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    val w = binding.wallpaperFrame.width
+                    if (w > 0) {
+                        binding.wallpaperFrame.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        val target = (w * 9f / 16f).toInt()
+                        if (binding.wallpaperFrame.layoutParams.height != target) {
+                            binding.wallpaperFrame.layoutParams.height = target
+                            binding.wallpaperFrame.requestLayout()
+                        }
+                    }
+                }
+            }
+        )
         repo.loadPrefs().let { p ->
             updateWallpaperPreview(p.wallpaperUri ?: p.wallpaperUris.firstOrNull())
         }
@@ -707,9 +723,7 @@ class SettingsActivity : AppCompatActivity() {
             val dp = fv.resources.displayMetrics.density
             fv.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
-                // Same 2dp stroke width keeps the box the same visual size in both states.
-                // A filled tint distinguishes focused without making the box appear smaller.
-                setColor(if (hasFocus) 0x22E53935.toInt() else 0x00000000)
+                setColor(0x00000000)
                 setStroke((2 * dp).toInt(),
                     if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                 cornerRadius = 8 * dp

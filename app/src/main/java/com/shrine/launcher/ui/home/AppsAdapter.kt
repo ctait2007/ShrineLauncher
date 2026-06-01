@@ -69,7 +69,9 @@ class AppsAdapter(
 
             applyCornerRadius(cardRoot, cornerRadiusPercent)
 
-            tvName.visibility = View.INVISIBLE
+            // GONE so unfocused items are exactly sizePx wide — no phantom gap from label
+            tvName.visibility = View.GONE
+            (tvName.layoutParams as? ViewGroup.LayoutParams)?.width = sizePx
 
             if (displayMode == CardDisplayMode.BANNER) bindBanner(app)
             else bindIcon(app)
@@ -104,8 +106,8 @@ class AppsAdapter(
             tvName.text = app.label
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
-                applyFocusBorderOverlay(v, hasFocus, cornerRadiusPercent)
-                tvName.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
+                applyFocusBorderFg(v, hasFocus, cornerRadiusPercent)
+                tvName.visibility = if (hasFocus) View.VISIBLE else View.GONE
             }
         }
 
@@ -124,27 +126,23 @@ class AppsAdapter(
             v.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
         }
 
-        private fun applyFocusBorderOverlay(v: View, focused: Boolean, radiusPct: Int) {
-            v.overlay.clear()
-            if (!focused) return
-            val w = v.width
-            val h = v.height
-            if (w <= 0 || h <= 0) {
-                // View not laid out yet — defer until it is
-                v.post { applyFocusBorderOverlay(v, true, radiusPct) }
+        private fun applyFocusBorderFg(v: View, focused: Boolean, radiusPct: Int) {
+            if (!focused) {
+                v.foreground = null
                 return
             }
+            // Use the same height source as applyCornerRadius so the arc is identical.
             val density  = v.resources.displayMetrics.density
+            val h        = v.layoutParams?.height?.takeIf { it > 0 }
+                ?: (iconSizeDp * density).toInt()
             val radius   = h * (radiusPct / 100f) * 0.5f
             val strokePx = (3 * density).toInt()
-            val drawable = GradientDrawable().apply {
+            v.foreground = GradientDrawable().apply {
                 shape        = GradientDrawable.RECTANGLE
                 setColor(0x00000000)
                 cornerRadius = radius
                 setStroke(strokePx, 0xFFFFFFFF.toInt())
             }
-            drawable.setBounds(0, 0, w, h)
-            v.overlay.add(drawable)
         }
 
         private fun bindIcon(app: AppInfo) {
