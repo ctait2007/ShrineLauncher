@@ -96,7 +96,10 @@ class TvContentRepository(private val context: Context) {
         }
 
         // FIX 5: Sort globally by lastEngagementTime descending (most recent first)
-        return combined.sortedByDescending { it.progressMs }
+        val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
+        return combined
+            .filter { it.id !in dismissed }
+            .sortedByDescending { it.progressMs }
     }
 
     // ── Watch Next: query ALL records without type filter ─────────────────────
@@ -216,7 +219,8 @@ class TvContentRepository(private val context: Context) {
         }
 
         Log.d(TAG, "PreviewPrograms[$type]: returning ${results.size} items")
-        return results
+        val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
+        return results.filter { it.id !in dismissed }
     }
 
     // ── Channels + per-channel programs ───────────────────────────────────────

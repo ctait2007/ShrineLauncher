@@ -103,8 +103,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun dismissChannelContent(content: com.shrine.launcher.data.model.TvContent) {
-        // Remove from local live data immediately (optimistic update)
-        // TvProvider deletion requires signature permission we don't have
+        // Add to a persistent dismissed set so items stay hidden across reloads
+        prefRepo.addDismissedContent(content.id)
         _continueWatching.value = _continueWatching.value?.filter { it.id != content.id }
         _watchNext.value        = _watchNext.value?.filter { it.id != content.id }
         _newForYou.value        = _newForYou.value?.filter { it.id != content.id }

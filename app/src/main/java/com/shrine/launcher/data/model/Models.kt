@@ -136,8 +136,8 @@ data class LauncherPrefs(
 fun iconSizeDp(label: String): Int = when (label) {
     "S"  -> 64
     "M"  -> 88
-    "L"  -> 112
-    "XL" -> 144
+    "L"  -> 132
+    "XL" -> 172
     else -> 88
 }
 

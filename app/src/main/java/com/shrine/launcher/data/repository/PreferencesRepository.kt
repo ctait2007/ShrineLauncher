@@ -86,6 +86,15 @@ class PreferencesRepository(context: Context) {
         }
     }
 
+    fun addDismissedContent(id: String) {
+        val current = getDismissedIds().toMutableSet()
+        current.add(id)
+        prefs.edit().putStringSet("dismissed_content", current).apply()
+    }
+
+    fun getDismissedIds(): Set<String> =
+        prefs.getStringSet("dismissed_content", emptySet()) ?: emptySet()
+
     companion object {
         private const val KEY_PREFS             = "launcher_prefs"
         private const val KEY_CONTINUE_WATCHING = "continue_watching"

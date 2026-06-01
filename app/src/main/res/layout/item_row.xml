@@ -90,19 +90,6 @@
         android:layout_gravity="start">
 
         <ImageButton
-            android:id="@+id/btnRowSettings"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_tune"
-            android:background="@drawable/selector_focusable_item"
-            android:tint="@color/text_primary"
-            android:contentDescription="Row settings"
-            android:focusable="false"
-            android:padding="6dp"
-            android:layout_marginStart="8dp"
-            android:layout_marginEnd="4dp" />
-
-        <ImageButton
             android:id="@+id/btnToggleDisplayMode"
             android:layout_width="40dp"
             android:layout_height="40dp"
@@ -110,6 +97,19 @@
             android:background="@drawable/selector_focusable_item"
             android:tint="@color/text_primary"
             android:contentDescription="Toggle icon/banner"
+            android:focusable="false"
+            android:padding="6dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btnRowSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_tune"
+            android:background="@drawable/selector_focusable_item"
+            android:tint="@color/text_primary"
+            android:contentDescription="Row settings"
             android:focusable="false"
             android:padding="6dp" />
     </LinearLayout>
