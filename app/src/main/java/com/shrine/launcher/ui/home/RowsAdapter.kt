@@ -28,8 +28,8 @@ class RowsAdapter(
     private val cornerRadiusPercent: Int = 50,
     private val iconSizeDp: Int = 88,
     private val rowStartPaddingDp: Int = 24,
-    private val itemSpacingDp: Int = 12,
-    private val rowSpacingDp: Int = 20
+    private val itemSpacingDp: Int = 50,
+    private val rowSpacingDp: Int  = 24
 ) : ListAdapter<RowItem, RowsAdapter.RowViewHolder>(DIFF) {
 
     override fun getItemViewType(position: Int) = when (getItem(position)) {
@@ -86,6 +86,7 @@ class RowsAdapter(
             val rowSpacingPx = (rowSpacingDp * dp).toInt()
             (rowContent.layoutParams as? ViewGroup.MarginLayoutParams)
                 ?.bottomMargin = rowSpacingPx
+            rowContent.requestLayout()
 
             when (row.kind) {
                 RowKind.CHANNEL -> {
@@ -119,18 +120,26 @@ class RowsAdapter(
                     .show()
             }
 
-            val onBtnFocus = View.OnFocusChangeListener { _, hasFocus ->
-                if (!hasFocus) {
-                    sidePanel.postDelayed({
-                        if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnIconSize.isFocused) {
-                            collapsePanel()
-                        }
-                    }, 100)
+            listOf(btnRowSettings, btnDisplayMode, btnIconSize).forEach { btn ->
+                btn.setOnFocusChangeListener { v, hasFocus ->
+                    val dp2 = v.resources.displayMetrics.density
+                    val bg = android.graphics.drawable.GradientDrawable().apply {
+                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                        setColor(0x00000000)
+                        setStroke(if (hasFocus) (2 * dp2).toInt() else 0,
+                            if (hasFocus) 0xFFE53935.toInt() else 0)
+                        cornerRadius = 6 * dp2
+                    }
+                    v.background = bg
+                    if (!hasFocus) {
+                        sidePanel.postDelayed({
+                            if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnIconSize.isFocused) {
+                                collapsePanel()
+                            }
+                        }, 100)
+                    }
                 }
             }
-            btnRowSettings.onFocusChangeListener = onBtnFocus
-            btnDisplayMode.onFocusChangeListener = onBtnFocus
-            btnIconSize.onFocusChangeListener    = onBtnFocus
 
             when (item) {
                 is RowItem.CategoryRow -> bindCategory(item)
@@ -202,17 +211,17 @@ class RowsAdapter(
         }
 
         private fun addItemSpacingDecoration() {
-            // Remove existing decorations before adding to avoid stacking on rebind
-            while (rvApps.itemDecorationCount > 0) rvApps.removeItemDecorationAt(0)
-            rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
-                override fun getItemOffsets(
-                    outRect: android.graphics.Rect, view: View,
-                    parent: RecyclerView, state: RecyclerView.State
-                ) {
-                    val px = (itemSpacingDp * view.resources.displayMetrics.density).toInt()
-                    outRect.right = px
-                }
-            })
+            rvApps.runCatching { removeItemDecorationAt(0) }
+            if (itemSpacingDp > 0) {
+                rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
+                    override fun getItemOffsets(
+                        outRect: android.graphics.Rect, view: View,
+                        parent: RecyclerView, state: RecyclerView.State
+                    ) {
+                        outRect.right = (itemSpacingDp * view.resources.displayMetrics.density).toInt()
+                    }
+                })
+            }
         }
 
         private fun bindCategory(item: RowItem.CategoryRow) {

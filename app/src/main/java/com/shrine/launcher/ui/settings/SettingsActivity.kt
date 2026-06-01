@@ -159,16 +159,31 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun commitNav(index: Int) {
-        if (index == 1 && !appearanceDirty) appearanceSnapshot = repo.loadPrefs()
+        lastNavIndex = index
         showPanel(index)
-        // Move focus into the panel content
-        binding.rightPanel.post {
-            val panel = panels.getOrNull(index) ?: return@post
-            val firstFocusable = panel.findFocus()
-                ?: panel.focusSearch(android.view.View.FOCUS_DOWN)
-                ?: panel.getChildAt(0)
-            firstFocusable?.requestFocus()
+        if (index == 1) {
+            appearanceSnapshot = repo.loadPrefs()
+            appearanceDirty = false
         }
+        // Move focus into the first focusable item in the selected panel
+        binding.rightPanel.post {
+            binding.rightPanel.post {
+                val panel = panels.getOrNull(index) ?: return@post
+                val target = findFirstFocusable(panel)
+                target?.requestFocus()
+            }
+        }
+    }
+
+    private fun findFirstFocusable(v: android.view.View): android.view.View? {
+        if (v.isFocusable && v.visibility == android.view.View.VISIBLE) return v
+        if (v is android.view.ViewGroup) {
+            for (i in 0 until v.childCount) {
+                val result = findFirstFocusable(v.getChildAt(i))
+                if (result != null) return result
+            }
+        }
+        return null
     }
 
     private fun setupFocusContainment() {

@@ -71,8 +71,8 @@ class RowsListAdapter(
                     val bg = android.graphics.drawable.GradientDrawable().apply {
                         shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                         setColor(0x00000000)
-                        setStroke(if (hasFocus) (2 * dp).toInt() else 0,
-                            if (hasFocus) 0xFFFFFFFF.toInt() else 0)
+                        setStroke(if (hasFocus) (2 * dp).toInt() else (1 * dp).toInt(),
+                            if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                         cornerRadius = 6 * dp
                     }
                     v.background = bg
