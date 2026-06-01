@@ -82,6 +82,7 @@ class RowsAdapter(
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
             btnIconSize.isFocusable    = false
+            (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
 
             // Apply row bottom spacing
             val rowSpacingPx = (rowSpacingDp * dp).toInt()
@@ -181,14 +182,25 @@ class RowsAdapter(
             btnIconSize.visibility     = View.VISIBLE
             btnRowSettings.isFocusable = true
             btnIconSize.isFocusable    = true
-            // For category rows show display mode toggle; hide for channel rows
+            // For category rows show display mode toggle; hide for channel rows.
+            // Channel panels only have 2 buttons (btnIconSize + btnRowSettings = ~92dp)
+            // so rowContent only needs to slide 92dp instead of 136dp.
+            val rowContentSlideDp: Float
             if (!isChannel) {
                 btnDisplayMode.visibility  = View.VISIBLE
                 btnDisplayMode.isFocusable = true
+                rowContentSlideDp = 136f
+                // Restore btnIconSize margin (no extra start margin needed in 3-button layout)
+                (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
             } else {
                 btnDisplayMode.visibility  = View.GONE
                 btnDisplayMode.isFocusable = false
+                rowContentSlideDp = 92f
+                // Add a start margin to the first visible button so it doesn't sit flush left
+                (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)
+                    ?.marginStart = (8 * dp).toInt()
             }
+            btnIconSize.requestLayout()
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
             sidePanel.animate()
@@ -202,7 +214,7 @@ class RowsAdapter(
                 }
                 .start()
             rowContent.animate()
-                .translationX(136f * dp)
+                .translationX(rowContentSlideDp * dp)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
@@ -215,6 +227,9 @@ class RowsAdapter(
             btnRowSettings.isFocusable = false
             btnDisplayMode.isFocusable = false
             btnIconSize.isFocusable    = false
+            // Reset channel-mode start margin on btnIconSize
+            (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
+            btnIconSize.requestLayout()
 
             // Restore focus SYNCHRONOUSLY before the animation starts so the layout
             // system never briefly assigns focus to an unintended view during the transition.

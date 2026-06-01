@@ -626,7 +626,7 @@ class SettingsActivity : AppCompatActivity() {
         updateSlideshowCount(prefs.wallpaperUris.size)
 
         val intervalIdx = slideshowIntervalValues.indexOfFirst {
-            it == prefs.wallpaperIntervalSeconds }.coerceAtLeast(2)
+            it == prefs.wallpaperIntervalSeconds }.coerceAtLeast(0)
         binding.sbSlideshowInterval.progress = intervalIdx
         binding.tvSlideshowIntervalValue.text = slideshowIntervalLabels[intervalIdx]
         binding.sbSlideshowInterval.setOnSeekBarChangeListener(seekListener { p ->
@@ -663,7 +663,10 @@ class SettingsActivity : AppCompatActivity() {
             binding.tvWallpaperNone.visibility = View.VISIBLE
         } else {
             binding.tvWallpaperNone.visibility = View.GONE
-            Glide.with(this).load(Uri.parse(uriString)).centerCrop()
+            Glide.with(this)
+                .load(Uri.parse(uriString))
+                .override(480, 270)   // load preview size only — avoids decoding full 4K image
+                .centerCrop()
                 .into(binding.ivWallpaperPreview)
         }
     }
@@ -721,7 +724,7 @@ class SettingsActivity : AppCompatActivity() {
             fv.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setColor(0x00000000)
-                setStroke(if (hasFocus) (2 * dp).toInt() else (1 * dp).toInt(),
+                setStroke((2 * dp).toInt(),
                     if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
                 cornerRadius = 8 * dp
             }

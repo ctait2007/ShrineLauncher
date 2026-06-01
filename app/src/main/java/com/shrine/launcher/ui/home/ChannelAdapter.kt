@@ -12,6 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.shrine.launcher.R
 import com.shrine.launcher.data.model.CardDisplayMode
+import com.shrine.launcher.data.model.ChannelType
 import com.shrine.launcher.data.model.TvContent
 
 /**
@@ -80,14 +81,21 @@ class ChannelAdapter(
                 "progressMs=${content.progressMs} durationMs=${content.durationMs} " +
                 "progressPercent=${content.progressPercent}")
 
-            // Progress bar: show if we have a playback position
+            // Progress bar: show whenever we have a playback position, or for any
+            // Continue Watching content (which by definition has been started).
             when {
-                content.durationMs > 0 && content.progressMs > 0 ->  {
+                content.durationMs > 0 && content.progressMs > 0 -> {
                     progressBar.visibility = View.VISIBLE
                     progressBar.progress   = content.progressPercent
                 }
                 content.progressMs > 0 -> {
-                    // Have position but unknown duration — show minimum 10%
+                    // Known position but unknown duration — show minimum 10%
+                    progressBar.visibility = View.VISIBLE
+                    progressBar.progress   = 10
+                }
+                content.channelType == ChannelType.CONTINUE_WATCHING -> {
+                    // Content is in Continue Watching: user was watching it even if
+                    // the app didn't populate COLUMN_LAST_PLAYBACK_POSITION_TIME_MILLIS
                     progressBar.visibility = View.VISIBLE
                     progressBar.progress   = 10
                 }

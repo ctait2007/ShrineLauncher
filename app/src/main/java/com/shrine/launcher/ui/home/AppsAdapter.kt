@@ -67,7 +67,7 @@ class AppsAdapter(
 
             applyCornerRadius(cardRoot, cornerRadiusPercent)
 
-            tvName.visibility = View.GONE
+            tvName.visibility = View.INVISIBLE
 
             if (displayMode == CardDisplayMode.BANNER) bindBanner(app)
             else bindIcon(app)
@@ -103,7 +103,7 @@ class AppsAdapter(
             cardRoot.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
                 if (hasFocus && v.hasWindowFocus()) onFocused()
                 applyFocusBorder(focusBorderFrame, hasFocus, cornerRadiusPercent)
-                tvName.visibility = if (hasFocus) View.VISIBLE else View.GONE
+                tvName.visibility = if (hasFocus) View.VISIBLE else View.INVISIBLE
             }
         }
 
