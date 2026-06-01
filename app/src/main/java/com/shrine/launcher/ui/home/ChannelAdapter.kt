@@ -59,7 +59,7 @@ class ChannelAdapter(
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
 
-            if (content.durationMs > 0) {
+            if (content.durationMs > 0 && content.progressMs > 0) {
                 progressBar.visibility = View.VISIBLE
                 progressBar.progress   = content.progressPercent
             } else {

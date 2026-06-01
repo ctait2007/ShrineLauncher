@@ -95,11 +95,9 @@ class TvContentRepository(private val context: Context) {
             queryAllPreviewPrograms(type)
         }
 
-        // FIX 5: Sort globally by lastEngagementTime descending (most recent first)
+        // Cursor already sorted by COLUMN_LAST_ENGAGEMENT_TIME_UTC_MILLIS DESC; no re-sort needed
         val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
-        return combined
-            .filter { it.id !in dismissed }
-            .sortedByDescending { it.progressMs }
+        return combined.filter { it.id !in dismissed }
     }
 
     // ── Watch Next: query ALL records without type filter ─────────────────────
@@ -154,7 +152,7 @@ class TvContentRepository(private val context: Context) {
         packageName = packageName ?: "",
         deepLinkUri = intentUri?.toString(),
         artworkUri  = (posterArtUri ?: thumbnailUri)?.toString(),
-        progressMs  = lastPlaybackPositionTimeMillis,
+        progressMs  = lastPlaybackPositionMillis,
         durationMs  = durationMillis.toLong(),
         channelType = type
     )

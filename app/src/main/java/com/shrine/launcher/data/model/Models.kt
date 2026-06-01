@@ -76,7 +76,9 @@ data class TvContent(
     val channelType: ChannelType = ChannelType.CONTINUE_WATCHING
 ) {
     val progressPercent: Int
-        get() = if (durationMs > 0) ((progressMs * 100) / durationMs).toInt() else 0
+        get() = if (durationMs > 0 && progressMs > 0)
+            ((progressMs * 100) / durationMs).toInt().coerceIn(0, 100)
+        else 0
 }
 
 // ── Continue Watching (kept for repo compat) ──────────────────────────────────
