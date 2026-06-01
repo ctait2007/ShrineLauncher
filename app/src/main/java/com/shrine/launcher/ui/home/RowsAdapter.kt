@@ -88,7 +88,7 @@ class RowsAdapter(
             // for item sizing, making 0% spacing truly touch adjacent rows.
             val rowSpacingPx = (rowSpacingDp * dp).toInt()
             itemView.setPadding(0, 0, 0, rowSpacingPx)
-            itemView.clipToPadding = true
+            (itemView as? ViewGroup)?.clipToPadding = true
 
             when (row.kind) {
                 RowKind.CHANNEL -> {

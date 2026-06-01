@@ -200,13 +200,15 @@ class HomeActivity : AppCompatActivity() {
     private fun setInitialRowFocus() {
         val lm = binding.rvRows.layoutManager as? LinearLayoutManager ?: return
         val list = rowsAdapter.currentList
+        val appsRvId  = com.shrine.launcher.R.id.rvApps
+        val cardRootId = com.shrine.launcher.R.id.cardRoot
         for (i in list.indices) {
             if (list[i] !is RowItem.CategoryRow) continue
             val rowView = lm.findViewByPosition(i) ?: continue
-            val rvApps = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvApps) ?: continue
+            val rvApps = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId) ?: continue
             val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
             val firstItem = innerLm.findViewByPosition(0) ?: continue
-            (firstItem.findViewById<android.view.View>(R.id.cardRoot) ?: firstItem).requestFocus()
+            (firstItem.findViewById<android.view.View>(cardRootId) ?: firstItem).requestFocus()
             return
         }
     }
