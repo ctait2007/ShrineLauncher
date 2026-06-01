@@ -80,11 +80,18 @@ class TvContentRepository(private val context: Context) {
 
         val filtered = when (type) {
             ChannelType.CONTINUE_WATCHING -> watchNext.filter { row ->
-                row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
+                // Primary signal: any content with actual playback progress is "in progress",
+                // regardless of what watchNextType the app declared.  Some apps (e.g. Nuvio)
+                // publish in-progress content with WATCH_NEXT_TYPE_NEXT instead of CONTINUE.
+                row.progressMs > 0L
+                    || row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
                     || row.watchNextType == -1
             }
             ChannelType.WATCH_NEXT -> watchNext.filter { row ->
+                // Only truly "up next" content: explicitly tagged as NEXT and not already
+                // in-progress (items with progress belong in Continue Watching above).
                 row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
+                    && row.progressMs == 0L
             }
             else -> watchNext
         }.map { row ->
