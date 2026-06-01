@@ -159,7 +159,7 @@ class AppsAdapter(
 
             if (banner != null) {
                 ivIcon.setImageDrawable(banner)
-                ivIcon.scaleType = ImageView.ScaleType.FIT_XY
+                ivIcon.scaleType = ImageView.ScaleType.FIT_CENTER
                 tvFallback?.visibility = View.GONE
             } else {
                 ivIcon.setImageDrawable(app.icon)
