@@ -84,12 +84,11 @@ class RowsAdapter(
             btnIconSize.isFocusable    = false
             (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
 
-            // Apply row bottom spacing
+            // Apply row bottom spacing via itemView padding — RecyclerView uses this
+            // for item sizing, making 0% spacing truly touch adjacent rows.
             val rowSpacingPx = (rowSpacingDp * dp).toInt()
-            (rowContent.layoutParams as? ViewGroup.MarginLayoutParams)
-                ?.bottomMargin = rowSpacingPx
-            rowContent.requestLayout()
-            itemView.requestLayout()
+            itemView.setPadding(0, 0, 0, rowSpacingPx)
+            itemView.clipToPadding = true
 
             when (row.kind) {
                 RowKind.CHANNEL -> {
@@ -259,16 +258,19 @@ class RowsAdapter(
 
         private fun addItemSpacingDecoration() {
             rvApps.runCatching { removeItemDecorationAt(0) }
-            if (itemSpacingDp > 0) {
-                rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
-                    override fun getItemOffsets(
-                        outRect: android.graphics.Rect, view: View,
-                        parent: RecyclerView, state: RecyclerView.State
-                    ) {
-                        outRect.right = (itemSpacingDp * view.resources.displayMetrics.density).toInt()
-                    }
-                })
-            }
+            // Category rows have an inherent 6dp gap between cards (3dp focusBorderFrame
+            // padding on each side). We compensate so that 0% spacing means truly touching.
+            // Channel rows have no inherent gap, so no compensation is needed.
+            val inherentGapDp = if (isChannel) 0 else 6
+            rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
+                override fun getItemOffsets(
+                    outRect: android.graphics.Rect, view: View,
+                    parent: RecyclerView, state: RecyclerView.State
+                ) {
+                    val d = view.resources.displayMetrics.density
+                    outRect.right = ((itemSpacingDp - inherentGapDp) * d).toInt()
+                }
+            })
         }
 
         private fun bindCategory(item: RowItem.CategoryRow) {

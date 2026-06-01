@@ -35,6 +35,7 @@ class HomeActivity : AppCompatActivity() {
     private var lastWallpaperUri: String? = "__unset__"
     private var slideshowJob: kotlinx.coroutines.Job? = null
     private var slideshowIndex = 0
+    private var initialFocusSet = false
 
     private val tvObserver = TvDatabaseObserver { vm.loadAll() }
 
@@ -182,7 +183,32 @@ class HomeActivity : AppCompatActivity() {
                 RowKind.CHANNEL  -> RowItem.ChannelRow(row, vm.getTvContentForRow(row))
             }
         }
-        rowsAdapter.submitList(items)
+        rowsAdapter.submitList(items) {
+            if (!initialFocusSet && items.any { it is RowItem.CategoryRow }) {
+                initialFocusSet = true
+                val vto = binding.rvRows.viewTreeObserver
+                vto.addOnGlobalLayoutListener(object : android.view.ViewTreeObserver.OnGlobalLayoutListener {
+                    override fun onGlobalLayout() {
+                        binding.rvRows.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                        setInitialRowFocus()
+                    }
+                })
+            }
+        }
+    }
+
+    private fun setInitialRowFocus() {
+        val lm = binding.rvRows.layoutManager as? LinearLayoutManager ?: return
+        val list = rowsAdapter.currentList
+        for (i in list.indices) {
+            if (list[i] !is RowItem.CategoryRow) continue
+            val rowView = lm.findViewByPosition(i) ?: continue
+            val rvApps = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(R.id.rvApps) ?: continue
+            val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
+            val firstItem = innerLm.findViewByPosition(0) ?: continue
+            (firstItem.findViewById<android.view.View>(R.id.cardRoot) ?: firstItem).requestFocus()
+            return
+        }
     }
 
     // ── Wallpaper / Slideshow ──────────────────────────────────────────────────
@@ -344,6 +370,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        initialFocusSet = false  // always re-focus first app row when returning home
         vm.loadAll()
         vm.scheduleAutoRefresh()
     }

@@ -63,17 +63,20 @@ class ChannelAdapter(
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
 
-            // Set card background with rounded corners for artwork clipping.
-            // Use alpha=1 (0x01) so ViewOutlineProvider.BACKGROUND produces a valid outline.
+            // Clip only the artwork to rounded corners so the progress bar and focus
+            // overlay aren't cut off by the outline.
             val radius = heightPx * (cornerRadiusPercent / 100f) * 0.5f
-            val cardBg = android.graphics.drawable.GradientDrawable().apply {
+            val roundedBg = android.graphics.drawable.GradientDrawable().apply {
                 shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
-                setColor(0x011E1E1E.toInt()) // near-transparent — just enough for clipToOutline
+                setColor(0x011E1E1E.toInt())
                 cornerRadius = radius
             }
-            cardRoot.background      = cardBg
-            cardRoot.clipToOutline   = true
-            cardRoot.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            ivArtwork.background      = roundedBg
+            ivArtwork.clipToOutline   = true
+            ivArtwork.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            // cardRoot must NOT clip children — progress bar and focus overlay sit inside it
+            cardRoot.background  = null
+            cardRoot.clipToOutline = false
 
             // Diagnose progress values so we can confirm the cursor columns are correct
             android.util.Log.d("ChannelAdapter",
@@ -145,14 +148,11 @@ class ChannelAdapter(
                 // Draw focus border via focusOverlay (rendered ON TOP of artwork).
                 // Drawing on cardRoot.background is hidden under ivArtwork (match_parent).
                 if (hasFocus) {
-                    val d  = v.resources.displayMetrics.density
-                    val h  = v.layoutParams?.height?.takeIf { it > 0 } ?: heightPx
-                    val r  = h * (cornerRadiusPercent / 100f) * 0.5f
                     focusOverlay.background = android.graphics.drawable.GradientDrawable().apply {
                         shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
                         setColor(0x00000000)
-                        cornerRadius = r
-                        setStroke((3 * d).toInt(), 0xFFFFFFFF.toInt())
+                        cornerRadius = radius
+                        setStroke((3 * v.resources.displayMetrics.density).toInt(), 0xFFFFFFFF.toInt())
                     }
                     focusOverlay.visibility = View.VISIBLE
                 } else {

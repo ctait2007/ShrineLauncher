@@ -538,20 +538,25 @@ class SettingsActivity : AppCompatActivity() {
         val startMarginDp = (binding.sbRowStartPadding.progress * 1.2f).toInt()
         val intervalSecs  = slideshowIntervalValues.getOrElse(
             binding.sbSlideshowInterval.progress) { 300 }
-        repo.savePrefs(repo.loadPrefs().copy(
-            iconSizeLabel           = selectedSize,
-            cardCornerRadiusPercent = binding.sbCornerRadius.progress * 10,
-            rowsBottomMarginPercent = binding.sbBottomMargin.progress,
-            rowStartPaddingPercent  = binding.sbRowStartPadding.progress,
-            rowStartPaddingDp       = startMarginDp,
-            rowSpacingPercent       = binding.sbRowSpacing.progress,
-            itemSpacingPercent      = binding.sbItemSpacing.progress,
+        val current = repo.loadPrefs()
+        repo.savePrefs(current.copy(
+            iconSizeLabel             = selectedSize,
+            cardCornerRadiusPercent   = binding.sbCornerRadius.progress * 10,
+            rowsBottomMarginPercent   = binding.sbBottomMargin.progress,
+            rowStartPaddingPercent    = binding.sbRowStartPadding.progress,
+            rowStartPaddingDp         = startMarginDp,
+            rowSpacingPercent         = binding.sbRowSpacing.progress,
+            itemSpacingPercent        = binding.sbItemSpacing.progress,
             clockEnabled              = binding.switchClock.isChecked,
             dateEnabled               = binding.switchDate.isChecked,
             clockFormat24h            = binding.switch24h.isChecked,
-            wallpaperIntervalSeconds  = intervalSecs
+            wallpaperIntervalSeconds  = intervalSecs,
+            // Explicitly carry forward wallpaper fields so they're never lost
+            wallpaperUri              = current.wallpaperUri,
+            wallpaperUris             = current.wallpaperUris
         ))
-        updateWallpaperPreview(repo.loadPrefs().wallpaperUri)
+        val saved = repo.loadPrefs()
+        updateWallpaperPreview(saved.wallpaperUri ?: saved.wallpaperUris.firstOrNull())
     }
 
     // ── Wallpaper ──────────────────────────────────────────────────────────────
@@ -609,7 +614,9 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
         }
-        updateWallpaperPreview(repo.loadPrefs().wallpaperUri)
+        repo.loadPrefs().let { p ->
+            updateWallpaperPreview(p.wallpaperUri ?: p.wallpaperUris.firstOrNull())
+        }
         applyFocusOutline(binding.btnPickWallpaper)
         applyFocusOutline(binding.btnClearWallpaper)
         binding.btnPickWallpaper.setOnClickListener {
@@ -724,8 +731,10 @@ class SettingsActivity : AppCompatActivity() {
             fv.background = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
                 setColor(0x00000000)
-                setStroke((2 * dp).toInt(),
-                    if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt())
+                setStroke(
+                    if (hasFocus) (3 * dp).toInt() else (1 * dp).toInt(),
+                    if (hasFocus) 0xFFE53935.toInt() else 0xFFFFFFFF.toInt()
+                )
                 cornerRadius = 8 * dp
             }
         }
