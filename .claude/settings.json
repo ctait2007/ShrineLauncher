@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys, json\ntry:\n    data = json.load(sys.stdin)\n    cmd = data.get('tool_input', {}).get('command', '')\nexcept Exception:\n    cmd = ''\nif 'git push' in cmd:\n    import subprocess, os\n    repo = '/Users/camerontait/Desktop/ShrineLauncher'\n    subprocess.Popen(['bash', 'scripts/watch-build.sh'], cwd=repo, start_new_session=True)\n\"",
+            "description": "After any git push, launch watch-build.sh in the background to monitor CI"
+          }
+        ]
+      }
+    ]
+  }
+}
