@@ -64,10 +64,12 @@ class SettingsPanelDialog(
     private var pageJob: Job? = null
 
     // ── Navigation ─────────────────────────────────────────────────────────────
-    private data class NavEntry(val title: String?, val builder: () -> Unit)
+    private data class NavEntry(val title: String?, val builder: () -> Unit, val focusedIndex: Int = -1)
     private val navStack = ArrayDeque<NavEntry>()
     private var currentTitle: String? = null
     private var currentBuilder: () -> Unit = {}
+    // Body-child index to restore focus to after rebuilding a page (set by onBackPressed)
+    private var pendingFocusRestoreIndex = -1
 
     // ── Views ──────────────────────────────────────────────────────────────────
     private lateinit var header: LinearLayout
@@ -150,6 +152,7 @@ class SettingsPanelDialog(
         val prev = navStack.removeLast()
         currentTitle   = prev.title
         currentBuilder = prev.builder
+        pendingFocusRestoreIndex = prev.focusedIndex   // focusFirstItem() will use this
         rawShowPage(prev.title)
         prev.builder()
         focusFirstItem()
@@ -161,7 +164,14 @@ class SettingsPanelDialog(
 
     /** Push the current page to the back-stack and show a new page. */
     fun navigateTo(title: String, builder: () -> Unit) {
-        navStack.addLast(NavEntry(currentTitle, currentBuilder))
+        // Capture which body child has focus so Back can return to it
+        val focusedIdx = body.findFocus()?.let { focused ->
+            (0 until body.childCount).firstOrNull { i ->
+                val child = body.getChildAt(i)
+                child === focused || child.findFocus() === focused
+            }
+        } ?: -1
+        navStack.addLast(NavEntry(currentTitle, currentBuilder, focusedIdx))
         currentTitle   = title
         currentBuilder = builder
         rawShowPage(title)
@@ -197,9 +207,27 @@ class SettingsPanelDialog(
         }
     }
 
-    /** Focus first focusable non-EditText child of body. */
+    /** Focus the pending restore index (set by Back navigation) or the first focusable child. */
     private fun focusFirstItem() {
         body.post {
+            // If body is still empty (async page not yet loaded), leave state intact so the
+            // coroutine's own focusFirstItem() call picks it up once views are added.
+            val hasContent = (0 until body.childCount).any { i ->
+                body.getChildAt(i).let { c -> c.isFocusable && c.visibility == View.VISIBLE }
+            }
+            if (!hasContent) return@post
+
+            val idx = pendingFocusRestoreIndex
+            pendingFocusRestoreIndex = -1
+
+            if (idx in 0 until body.childCount) {
+                val target = body.getChildAt(idx)
+                if (target != null && target.isFocusable && target.visibility == View.VISIBLE) {
+                    target.requestFocus()
+                    return@post
+                }
+            }
+            // Fallback: first focusable non-EditText child
             for (i in 0 until body.childCount) {
                 val child = body.getChildAt(i)
                 if (child.isFocusable && child !is EditText && child.visibility == View.VISIBLE) {
