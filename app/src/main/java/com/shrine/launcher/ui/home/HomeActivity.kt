@@ -285,6 +285,9 @@ class HomeActivity : AppCompatActivity() {
         val scale = prefs.statusBarIconSizePercent.coerceIn(50, 150) / 100f
         binding.btnSettings.scaleX = scale
         binding.btnSettings.scaleY = scale
+        // Scale clock & date text sizes proportionally (base: 20sp clock, 12sp date)
+        binding.tvClock.textSize = 20f * scale
+        binding.tvDate.textSize  = 12f * scale
     }
 
     // ── Idle Mode ──────────────────────────────────────────────────────────────
@@ -346,14 +349,7 @@ class HomeActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnSettings.setOnClickListener {
-            val wallpaperUri = vm.prefs.value?.wallpaperUri
-                ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
-            SettingsPanelDialog(
-                context          = this,
-                wallpaperUri     = wallpaperUri,
-                onDismissed      = { binding.btnSettings.post { binding.btnSettings.requestFocus() } },
-                onAppLongClick   = { app -> showAppContextMenu(app) }
-            ).show()
+            openPanel()
         }
         binding.btnSettings.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             val dp = v.resources.displayMetrics.density
@@ -378,12 +374,19 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    private fun showAppContextMenu(app: AppInfo) {
-        AppContextMenuDialog(this, app,
-            isFavourite       = vm.favourites.value?.contains(app.packageName) == true,
-            onFavouriteToggle = { vm.toggleFavourite(app.packageName) },
-            onLaunch          = { handleAppClick(app) }
+    private fun openPanel(initialApp: AppInfo? = null) {
+        val wallpaperUri = vm.prefs.value?.wallpaperUri
+            ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
+        SettingsPanelDialog(
+            context      = this,
+            wallpaperUri = wallpaperUri,
+            onDismissed  = { binding.btnSettings.post { binding.btnSettings.requestFocus() } },
+            initialApp   = initialApp
         ).show()
+    }
+
+    private fun showAppContextMenu(app: AppInfo) {
+        openPanel(initialApp = app)
     }
 
     private fun showContentContextMenu(content: TvContent) {

@@ -11,34 +11,35 @@ class ManageSettingsActivity : BaseSettingsActivity() {
     private val exportLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
     ) { uri: Uri? ->
-        if (uri == null) return@registerForActivityResult
+        if (uri == null) { finish(); return@registerForActivityResult }
         val ok = ConfigManager.exportToUri(this, uri)
-        Toast.makeText(this,
-            if (ok) "Settings exported" else "Export failed",
-            Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, if (ok) "Settings exported" else "Export failed", Toast.LENGTH_SHORT).show()
+        finish()
     }
 
     private val importLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
     ) { uri: Uri? ->
-        if (uri == null) return@registerForActivityResult
+        if (uri == null) { finish(); return@registerForActivityResult }
         val ok = ConfigManager.importFromUri(this, uri)
-        Toast.makeText(this,
-            if (ok) "Settings imported" else "Import failed — invalid file",
+        Toast.makeText(this, if (ok) "Settings imported" else "Import failed — invalid file",
             Toast.LENGTH_SHORT).show()
+        finish()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // If launched directly from the panel with an action, handle and finish.
+        when (intent.getStringExtra("action")) {
+            "export" -> { exportLauncher.launch("shrine_settings.json"); return }
+            "import" -> { importLauncher.launch(arrayOf("application/json", "*/*")); return }
+        }
+
         setupBase("Manage Settings", intent.getStringExtra("wallpaper_uri"))
 
-        addButton("Export settings") {
-            exportLauncher.launch("shrine_settings.json")
-        }
-
-        addButton("Import settings") {
-            importLauncher.launch(arrayOf("application/json", "*/*"))
-        }
+        addButton("Export to file")   { exportLauncher.launch("shrine_settings.json") }
+        addButton("Import from file") { importLauncher.launch(arrayOf("application/json", "*/*")) }
 
         addButton("Reset to defaults", textColor = 0xFFCF6679.toInt()) {
             android.app.AlertDialog.Builder(this)

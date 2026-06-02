@@ -18,18 +18,22 @@
 
         <ImageView
             android:id="@+id/ivPanelLogo"
-            android:layout_width="140dp"
-            android:layout_height="48dp"
+            android:layout_width="160dp"
+            android:layout_height="56dp"
             android:src="@drawable/shrine_text_logo"
             android:scaleType="fitStart"
             android:adjustViewBounds="true"
             android:contentDescription="Shrine Launcher" />
 
-        <!-- date removed; keep id so Kotlin references don't crash -->
+        <!-- Shown as red section title on sub-pages; hidden at root -->
         <TextView
             android:id="@+id/tvPanelDate"
-            android:layout_width="0dp"
-            android:layout_height="0dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textColor="#FFE53935"
+            android:textSize="13sp"
+            android:textStyle="bold"
             android:visibility="gone" />
     </LinearLayout>
 
