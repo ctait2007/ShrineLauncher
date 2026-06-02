@@ -75,8 +75,12 @@ class TvContentRepository(private val context: Context) {
         val watchNext = queryWatchNextAll()
 
         watchNext.forEach { row ->
-            Log.d(TAG, "WN: pkg=${row.packageName} | title=${row.title} | " +
-                "type=${row.watchNextType} | progressMs=${row.progressMs} | durationMs=${row.durationMs}")
+            Log.e(TAG, "WATCHNEXT: " +
+                "pkg=${row.packageName} " +
+                "title=${row.title} " +
+                "type=${row.watchNextType} " +
+                "progressMs=${row.progressMs} " +
+                "durationMs=${row.durationMs}")
         }
 
         // Classify by playback progress fraction — same approach used by Projectivy.
@@ -103,36 +107,69 @@ class TvContentRepository(private val context: Context) {
             .map { it.id }
             .toSet()
 
+        // Map WatchNext rows to TvContent up-front so we can merge with PreviewPrograms.
+        fun RawWatchNext.toContent() = TvContent(
+            id          = id,
+            title       = title,
+            subtitle    = subtitle?.ifBlank { appLabel(packageName) } ?: appLabel(packageName),
+            packageName = packageName,
+            deepLinkUri = intentUri,
+            artworkUri  = artworkUri,
+            progressMs  = progressMs,
+            durationMs  = durationMs,
+            channelType = type
+        )
+
         val filtered = when (type) {
-            ChannelType.CONTINUE_WATCHING -> watchNext.filter { it.id in continueWatchingIds }
-            ChannelType.WATCH_NEXT        -> watchNext.filter { row -> row.id !in continueWatchingIds }
-            else                          -> watchNext
-        }.map { row ->
-            TvContent(
-                id          = row.id,
-                title       = row.title,
-                subtitle    = row.subtitle?.ifBlank { appLabel(row.packageName) }
-                                ?: appLabel(row.packageName),
-                packageName = row.packageName,
-                deepLinkUri = row.intentUri,
-                artworkUri  = row.artworkUri,
-                progressMs  = row.progressMs,
-                durationMs  = row.durationMs,
-                channelType = type
-            )
+            ChannelType.CONTINUE_WATCHING -> {
+                // PreviewPrograms carry the authoritative lastPlaybackPositionMillis for
+                // apps like Nuvio. WatchNextPrograms for the same content often have
+                // progressMs=0 due to a Fire TV provider quirk even when real position data
+                // exists in the corresponding PreviewProgram.
+                val fromPreview = queryAllPreviewPrograms(type)
+                    .filter { it.progressMs > 0L && it.durationMs > 0L }
+
+                // Build a lookup from "packageName|title" -> PreviewProgram with real progress
+                val previewProgressByKey = fromPreview
+                    .associateBy { "${it.packageName}|${it.title}" }
+
+                // Map WatchNext items, enriching progressMs/durationMs from PreviewPrograms
+                // when the WatchNext entry has progressMs=0.
+                val fromWatchNext = watchNext
+                    .filter { it.id in continueWatchingIds }
+                    .map { row ->
+                        val base    = row.toContent()
+                        val preview = previewProgressByKey["${row.packageName}|${row.title}"]
+                        if (base.progressMs == 0L && preview != null) {
+                            base.copy(progressMs = preview.progressMs, durationMs = preview.durationMs)
+                        } else base
+                    }
+
+                // Add any PreviewProgram items not already covered by a WatchNext entry
+                val seenKeys = fromWatchNext.map { "${it.packageName}|${it.title}" }.toSet()
+                val previewOnly = fromPreview
+                    .filter { "${it.packageName}|${it.title}" !in seenKeys }
+
+                Log.e(TAG, "CW: ${fromWatchNext.size} from WatchNext (enriched), " +
+                    "${previewOnly.size} added from PreviewPrograms only")
+                fromWatchNext + previewOnly
+            }
+
+            ChannelType.WATCH_NEXT -> {
+                // Pure WatchNext items not claimed by Continue Watching.
+                // No PreviewPrograms fallback — Nuvio's "Continue Watching" PreviewPrograms
+                // would land here otherwise, defeating the routing entirely.
+                watchNext
+                    .filter { it.id !in continueWatchingIds }
+                    .map { it.toContent() }
+            }
+
+            else -> watchNext.map { it.toContent() }
         }
 
-        Log.d(TAG, "WatchNext[$type]: ${filtered.size} after type filter (${watchNext.size} total)")
-
-        val combined = if (filtered.isNotEmpty()) {
-            filtered
-        } else {
-            Log.d(TAG, "WatchNext empty — trying PreviewPrograms fallback")
-            queryAllPreviewPrograms(type)
-        }
-
+        Log.d(TAG, "queryCombined[$type]: ${filtered.size} items")
         val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
-        return combined.filter { it.id !in dismissed }
+        return filtered.filter { it.id !in dismissed }
     }
 
     // ── Watch Next: read fields directly from cursor ──────────────────────────
@@ -186,6 +223,13 @@ class TvContentRepository(private val context: Context) {
                             val posterUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI)
                             val thumbUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_THUMBNAIL_URI)
                             val watchNextType = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
+
+                            Log.e(TAG, "RAW_WATCHNEXT: " +
+                                "title=$title " +
+                                "pkg=$pkg " +
+                                "watchNextType=$watchNextType " +
+                                "progressMs=$progressMs " +
+                                "durationMs=$durationMs")
 
                             results.add(RawWatchNext(
                                 id            = id,
@@ -253,14 +297,20 @@ class TvContentRepository(private val context: Context) {
                     try {
                         val program = PreviewProgram.fromCursor(c)
 
-                        // FIX 3: Log per-program so we can see what each app publishes
-                        Log.d(TAG, "PP: pkg=${program.packageName} | " +
-                            "title=${program.title} | type=${program.type}")
-
                         if (program.type !in relevantTypes) continue
 
-                        val channelPkg = getPackageForChannel(program.channelId)
+                        val channelPkg  = getPackageForChannel(program.channelId)
                         val channelName = getChannelName(program.channelId)
+                        val lastPos     = program.lastPlaybackPositionMillis.toLong()
+                        val duration    = program.durationMillis.toLong()
+
+                        Log.e(TAG, "PREVIEW_PROGRAM: " +
+                            "pkg=${program.packageName} " +
+                            "title=${program.title} " +
+                            "channelName=$channelName " +
+                            "lastPlaybackPositionMs=$lastPos " +
+                            "durationMs=$duration " +
+                            "type=${program.type}")
 
                         results.add(TvContent(
                             id          = "${program.channelId}_${program.id}",
@@ -269,7 +319,8 @@ class TvContentRepository(private val context: Context) {
                             packageName = channelPkg.ifBlank { program.packageName ?: "" },
                             deepLinkUri = program.intentUri?.toString(),
                             artworkUri  = (program.posterArtUri ?: program.thumbnailUri)?.toString(),
-                            durationMs  = program.durationMillis.toLong(),
+                            durationMs  = duration,
+                            progressMs  = lastPos,
                             channelType = type
                         ))
                     } catch (e: Exception) {
@@ -332,6 +383,14 @@ class TvContentRepository(private val context: Context) {
                 while (c.moveToNext() && results.size < 20) {
                     try {
                         val program = PreviewProgram.fromCursor(c)
+                        val lastPos  = program.lastPlaybackPositionMillis.toLong()
+                        val duration = program.durationMillis.toLong()
+                        Log.e(TAG, "CHANNEL_PROGRAM: " +
+                            "channel=$channelName " +
+                            "pkg=$pkg " +
+                            "title=${program.title} " +
+                            "lastPlaybackPositionMs=$lastPos " +
+                            "durationMs=$duration")
                         results.add(TvContent(
                             id          = "${channel.id}_${program.id}",
                             title       = program.title ?: continue,
@@ -339,7 +398,8 @@ class TvContentRepository(private val context: Context) {
                             packageName = pkg,
                             deepLinkUri = program.intentUri?.toString(),
                             artworkUri  = (program.posterArtUri ?: program.thumbnailUri)?.toString(),
-                            durationMs  = program.durationMillis.toLong(),
+                            durationMs  = duration,
+                            progressMs  = lastPos,
                             channelType = ChannelType.NEW_FOR_YOU
                         ))
                     } catch (e: Exception) { }
