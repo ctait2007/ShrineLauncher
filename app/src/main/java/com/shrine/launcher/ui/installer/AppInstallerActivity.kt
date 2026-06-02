@@ -61,6 +61,12 @@ class AppInstallerActivity : AppCompatActivity() {
         }
 
         btnClose.setOnClickListener { finish() }
+
+        // Auto-start install if launched with a URL
+        intent.getStringExtra("install_url")?.let { url ->
+            etUrl.setText(url)
+            installFromUrl(url)
+        }
     }
 
     override fun onDestroy() { super.onDestroy(); scope.cancel() }

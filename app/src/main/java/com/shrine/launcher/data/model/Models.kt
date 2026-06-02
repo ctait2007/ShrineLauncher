@@ -2,8 +2,6 @@ package com.shrine.launcher.data.model
 
 import android.graphics.drawable.Drawable
 
-// ── App Info ──────────────────────────────────────────────────────────────────
-
 data class AppInfo(
     val packageName: String,
     val label: String,
@@ -11,36 +9,24 @@ data class AppInfo(
     val isSystemApp: Boolean = false
 )
 
-// ── Display mode for app cards ────────────────────────────────────────────────
+enum class CardDisplayMode { ICON, BANNER }
 
-enum class CardDisplayMode {
-    ICON,   // square icon card (default)
-    BANNER  // wide 16:9 banner card
-}
-
-// ── Row classification ────────────────────────────────────────────────────────
-
-/**
- * CATEGORY rows = collections of apps (Favourites, All Apps, Custom, Recently Opened)
- * CHANNEL rows  = content listings sourced from inside apps via TvContract
- *                 (Continue Watching, Watch Next, etc.)
- */
 enum class RowKind { CATEGORY, CHANNEL }
 
 enum class CategoryType {
     ALL_APPS,
     FAVORITES,
+    INSTALL,
     CUSTOM,
     RECENTLY_OPENED
 }
 
 enum class ChannelType {
-    CONTINUE_WATCHING,  // TvContract WatchNextPrograms
-    WATCH_NEXT,         // alias — same source, different label
-    NEW_FOR_YOU         // PreviewPrograms from installed apps
+    CONTINUE_WATCHING,
+    WATCH_NEXT,
+    NEW_FOR_YOU,
+    TV_PROVIDER   // individual TvProvider channel row
 }
-
-// ── Unified row descriptor ────────────────────────────────────────────────────
 
 data class LauncherRow(
     val id: String,
@@ -51,21 +37,17 @@ data class LauncherRow(
     val apps: MutableList<String>   = mutableListOf(),
     val isVisible: Boolean          = true,
     val cardDisplayMode: CardDisplayMode = CardDisplayMode.ICON,
-    // For CHANNEL rows: which app packages to include (empty = all)
     val allowedPackages: List<String> = emptyList(),
     val isPinnedToTop: Boolean      = false,
-    // Per-row icon size override; null = use global setting
     val iconSizeLabelOverride: String? = null,
-    // Auto-refresh interval for channel rows in minutes; 0 = manual only
-    val autoRefreshMinutes: Int     = 0
+    val autoRefreshMinutes: Int     = 0,
+    val tvProviderChannelId: Long?  = null   // only for ChannelType.TV_PROVIDER rows
 )
-
-// ── TV Content (Channel listings) ─────────────────────────────────────────────
 
 data class TvContent(
     val id: String,
     val title: String,
-    val subtitle: String,           // e.g. "S2 E4 • Netflix"
+    val subtitle: String,
     val packageName: String,
     val deepLinkUri: String?,
     val artworkUri: String?,
@@ -79,10 +61,7 @@ data class TvContent(
         else 0
 }
 
-// ── Continue Watching (kept for repo compat) ──────────────────────────────────
 typealias ContinueWatchingEntry = TvContent
-
-// ── Widget ────────────────────────────────────────────────────────────────────
 
 enum class WidgetType { CONTINUE_WATCHING, CLOCK, WEATHER, QUICK_SETTINGS }
 
@@ -92,8 +71,6 @@ data class PinnedWidget(
     val title: String,
     val position: Int = 0
 )
-
-// ── Theme ─────────────────────────────────────────────────────────────────────
 
 data class LauncherTheme(
     val id: String                  = "default",
@@ -109,8 +86,6 @@ data class LauncherTheme(
     val backgroundDim: Int          = 60
 )
 
-// ── Preferences ───────────────────────────────────────────────────────────────
-
 data class LauncherPrefs(
     val rows: List<LauncherRow>             = defaultRows(),
     val pinnedWidgets: List<PinnedWidget>   = emptyList(),
@@ -119,17 +94,26 @@ data class LauncherPrefs(
     val dateEnabled: Boolean                = true,
     val clockFormat24h: Boolean             = false,
     val rowLabelStyle: String               = "ABOVE",
-    val iconSizeLabel: String               = "M",      // S=80 M=108 L=160 XL=200
+    val iconSizeLabel: String               = "M",
     val cardCornerRadiusPercent: Int        = 50,
     val wallpaperUri: String?               = null,
-    val wallpaperUris: List<String>         = emptyList(), // slideshow collection
-    val wallpaperIntervalSeconds: Int       = 300,         // 5 min default
+    val wallpaperUris: List<String>         = emptyList(),
+    val wallpaperIntervalSeconds: Int       = 300,
     val rowsBottomMarginPercent: Int        = 15,
     val rowStartPaddingDp: Int              = 24,
-    val rowSpacingPercent: Int              = 20,  // vertical space between rows 0-100%
-    val itemSpacingPercent: Int             = 10,  // horizontal space between items 0-100%
+    val rowSpacingPercent: Int              = 20,
+    val itemSpacingPercent: Int             = 10,
     val animationsEnabled: Boolean          = true,
-    val globalCardDisplayMode: CardDisplayMode = CardDisplayMode.ICON
+    val globalCardDisplayMode: CardDisplayMode = CardDisplayMode.ICON,
+    // New in v0.10.0
+    val channelsEnabled: Boolean            = true,
+    val showCategoryTitle: Boolean          = true,
+    val showAppTitle: Boolean               = true,
+    val statusBarIconSizePercent: Int       = 100,
+    val idleModeEnabled: Boolean            = false,
+    val idleTimeoutSeconds: Int             = 120,
+    val progressBarEnabled: Boolean         = true,
+    val wallpaperSlideshow: Boolean         = false
 )
 
 fun iconSizeDp(label: String): Int = when (label) {
@@ -158,5 +142,17 @@ private fun defaultRows(): List<LauncherRow> = listOf(
         title = "All Apps",
         kind = RowKind.CATEGORY,
         categoryType = CategoryType.ALL_APPS
+    ),
+    LauncherRow(
+        id = "row_favourites",
+        title = "Favourites",
+        kind = RowKind.CATEGORY,
+        categoryType = CategoryType.FAVORITES
+    ),
+    LauncherRow(
+        id = "row_install",
+        title = "Install",
+        kind = RowKind.CATEGORY,
+        categoryType = CategoryType.INSTALL
     )
 )

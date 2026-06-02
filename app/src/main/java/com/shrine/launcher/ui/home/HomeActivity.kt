@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
@@ -19,7 +21,6 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.shrine.launcher.data.model.*
 import com.shrine.launcher.databinding.ActivityHomeBinding
-import com.shrine.launcher.ui.settings.SettingsActivity
 import com.shrine.launcher.util.ThemeUtil
 import com.shrine.launcher.util.TvDatabaseObserver
 import com.shrine.launcher.util.TvPermissionUtil
@@ -36,6 +37,11 @@ class HomeActivity : AppCompatActivity() {
     private var slideshowJob: kotlinx.coroutines.Job? = null
     private var slideshowIndex = 0
     private var initialFocusSet = false
+
+    // Idle mode
+    private val idleHandler = Handler(Looper.getMainLooper())
+    private var isIdle = false
+    private val idleRunnable = Runnable { enterIdle() }
 
     private val tvObserver = TvDatabaseObserver { vm.loadAll() }
 
@@ -83,6 +89,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         try { contentResolver.unregisterContentObserver(tvObserver) } catch (e: Exception) { }
+        idleHandler.removeCallbacks(idleRunnable)
     }
 
     // ── TV Permissions ─────────────────────────────────────────────────────────
@@ -108,7 +115,7 @@ class HomeActivity : AppCompatActivity() {
     private fun setupRows() {
         val prefs = vm.prefs.value
         rowsAdapter = RowsAdapter(
-            onAppClick             = { app -> vm.launchApp(app.packageName) },
+            onAppClick             = { app -> handleAppClick(app) },
             onAppLongClick         = { app -> showAppContextMenu(app) },
             onContentClick         = { content -> launchContent(content) },
             onContentLongClick     = { content -> showContentContextMenu(content) },
@@ -121,7 +128,7 @@ class HomeActivity : AppCompatActivity() {
             },
             onRowIconSizeChange    = { row -> vm.updateRow(row) },
             cornerRadiusPercent    = prefs?.cardCornerRadiusPercent ?: 50,
-            iconSizeDp             = com.shrine.launcher.data.model.iconSizeDp(prefs?.iconSizeLabel ?: "M"),
+            iconSizeDp             = iconSizeDp(prefs?.iconSizeLabel ?: "M"),
             rowStartPaddingDp      = prefs?.rowStartPaddingDp ?: 24,
             itemSpacingDp          = prefs?.itemSpacingPercent ?: 10,
             rowSpacingDp           = prefs?.rowSpacingPercent ?: 20
@@ -146,11 +153,14 @@ class HomeActivity : AppCompatActivity() {
         vm.continueWatching.observe(this) { rebuildRows() }
         vm.watchNext.observe(this) { rebuildRows() }
         vm.newForYou.observe(this) { rebuildRows() }
+        vm.tvProviderContent.observe(this) { rebuildRows() }
         vm.theme.observe(this) { theme -> ThemeUtil.applyToActivity(this, binding.root, theme) }
         vm.prefs.observe(this) { prefs ->
             if (prefs == null) return@observe
             applyClock(prefs)
             applyBottomMargin(prefs)
+            applyStatusBarSize(prefs)
+            setupIdleMode(prefs)
             setupRows()
             rebuildRows()
             val uris = prefs.wallpaperUris
@@ -176,14 +186,27 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun rebuildRows() {
-        val rows = vm.rows.value ?: return
+        val rows  = vm.rows.value ?: return
+        val prefs = vm.prefs.value
         val sorted = rows.sortedWith(compareByDescending { it.isPinnedToTop })
-        val items = sorted.map { row ->
+
+        val items = sorted.mapNotNull { row ->
             when (row.kind) {
-                RowKind.CATEGORY -> RowItem.CategoryRow(row, vm.getAppsForRow(row))
-                RowKind.CHANNEL  -> RowItem.ChannelRow(row, vm.getTvContentForRow(row))
+                RowKind.CATEGORY -> {
+                    val apps = vm.getAppsForRow(row)
+                    // Hide empty categories (except ALL_APPS, INSTALL which always show)
+                    if (apps.isEmpty() &&
+                        row.categoryType != CategoryType.ALL_APPS &&
+                        row.categoryType != CategoryType.INSTALL) return@mapNotNull null
+                    RowItem.CategoryRow(row, apps)
+                }
+                RowKind.CHANNEL -> {
+                    if (prefs?.channelsEnabled == false) return@mapNotNull null
+                    RowItem.ChannelRow(row, vm.getTvContentForRow(row))
+                }
             }
         }
+
         rowsAdapter.submitList(items) {
             if (!initialFocusSet && items.any { it is RowItem.CategoryRow }) {
                 initialFocusSet = true
@@ -205,19 +228,17 @@ class HomeActivity : AppCompatActivity() {
         val cardRootId = com.shrine.launcher.R.id.cardRoot
         for (i in list.indices) {
             val item = list[i]
-            // Only target non-empty category rows
             if (item !is RowItem.CategoryRow || item.apps.isEmpty()) continue
             val rowView = lm.findViewByPosition(i) ?: continue
             val rvApps  = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId)
                 ?: continue
-            if (rvApps.visibility != android.view.View.VISIBLE) continue
+            if (rvApps.visibility != View.VISIBLE) continue
             val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
             val firstItem = innerLm.findViewByPosition(0) ?: continue
-            val card = firstItem.findViewById<android.view.View>(cardRootId) ?: firstItem
+            val card = firstItem.findViewById<View>(cardRootId) ?: firstItem
             card.requestFocus()
-            return  // success — leave initialFocusSet = true
+            return
         }
-        // Apps not loaded yet (row is empty) — allow next rebuild to retry
         initialFocusSet = false
     }
 
@@ -260,6 +281,49 @@ class HomeActivity : AppCompatActivity() {
         binding.mainScroll.clipToPadding = false
     }
 
+    private fun applyStatusBarSize(prefs: LauncherPrefs) {
+        val pct  = prefs.statusBarIconSizePercent.coerceIn(50, 150)
+        val base = 40f * resources.displayMetrics.density
+        val size = (base * pct / 100f).toInt()
+        val lp   = binding.btnSettings.layoutParams
+        lp.width  = size
+        lp.height = size
+        binding.btnSettings.layoutParams = lp
+    }
+
+    // ── Idle Mode ──────────────────────────────────────────────────────────────
+
+    private fun setupIdleMode(prefs: LauncherPrefs) {
+        idleHandler.removeCallbacks(idleRunnable)
+        if (prefs.idleModeEnabled) {
+            idleHandler.postDelayed(idleRunnable, prefs.idleTimeoutSeconds * 1000L)
+        }
+    }
+
+    private fun enterIdle() {
+        isIdle = true
+        binding.topBar.visibility    = View.INVISIBLE
+        binding.mainScroll.visibility = View.INVISIBLE
+    }
+
+    private fun exitIdle() {
+        isIdle = false
+        binding.topBar.visibility    = View.VISIBLE
+        binding.mainScroll.visibility = View.VISIBLE
+        val prefs = vm.prefs.value
+        if (prefs?.idleModeEnabled == true) {
+            idleHandler.removeCallbacks(idleRunnable)
+            idleHandler.postDelayed(idleRunnable, prefs.idleTimeoutSeconds * 1000L)
+        }
+    }
+
+    private fun resetIdleTimer() {
+        val prefs = vm.prefs.value ?: return
+        if (!prefs.idleModeEnabled) return
+        idleHandler.removeCallbacks(idleRunnable)
+        idleHandler.postDelayed(idleRunnable, prefs.idleTimeoutSeconds * 1000L)
+    }
+
     // ── Clock ──────────────────────────────────────────────────────────────────
 
     private fun setupClock() {
@@ -286,7 +350,12 @@ class HomeActivity : AppCompatActivity() {
 
     private fun setupButtons() {
         binding.btnSettings.setOnClickListener {
-            startActivity(Intent(this, SettingsActivity::class.java))
+            val wallpaperUri = vm.prefs.value?.wallpaperUri
+                ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
+            SettingsPanelDialog(this, wallpaperUri) {
+                // focus returns to settings button on dismiss
+                binding.btnSettings.post { binding.btnSettings.requestFocus() }
+            }.show()
         }
         binding.btnSettings.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             val dp = v.resources.displayMetrics.density
@@ -301,13 +370,21 @@ class HomeActivity : AppCompatActivity() {
         }
     }
 
-    // ── Dialogs ────────────────────────────────────────────────────────────────
+    // ── App / Content interactions ─────────────────────────────────────────────
+
+    private fun handleAppClick(app: AppInfo) {
+        if (app.packageName == "com.shrine.launcher.INSTALL_ROW") {
+            startActivity(Intent(this, com.shrine.launcher.ui.installer.AppInstallerActivity::class.java))
+        } else {
+            vm.launchApp(app.packageName)
+        }
+    }
 
     private fun showAppContextMenu(app: AppInfo) {
         AppContextMenuDialog(this, app,
             isFavourite       = vm.favourites.value?.contains(app.packageName) == true,
             onFavouriteToggle = { vm.toggleFavourite(app.packageName) },
-            onLaunch          = { vm.launchApp(app.packageName) }
+            onLaunch          = { handleAppClick(app) }
         ).show()
     }
 
@@ -321,8 +398,6 @@ class HomeActivity : AppCompatActivity() {
     private fun showRowSettingsDialog(row: LauncherRow) {
         val apps = vm.allApps.value
         if (apps.isNullOrEmpty()) {
-            // Apps not loaded yet — observe once, show dialog, then immediately remove the observer
-            // to avoid leaking it and potentially opening the dialog multiple times.
             val obs = object : androidx.lifecycle.Observer<List<AppInfo>> {
                 override fun onChanged(loaded: List<AppInfo>) {
                     if (loaded.isNotEmpty()) {
@@ -338,12 +413,7 @@ class HomeActivity : AppCompatActivity() {
             }
             vm.allApps.observe(this, obs)
         } else {
-            RowSettingsDialog(
-                context   = this,
-                row       = row,
-                allApps   = apps,
-                onChanged = { vm.loadAll() }
-            ).show()
+            RowSettingsDialog(this, row, apps) { vm.loadAll() }.show()
         }
     }
 
@@ -365,6 +435,22 @@ class HomeActivity : AppCompatActivity() {
         vm.launchApp(content.packageName)
     }
 
+    // ── Key events ────────────────────────────────────────────────────────────
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (isIdle) {
+            if (event.action == KeyEvent.ACTION_DOWN) exitIdle()
+            return true  // consume the event — don't propagate
+        }
+        if (event.action == KeyEvent.ACTION_DOWN) resetIdleTimer()
+        return super.dispatchKeyEvent(event)
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_BACK) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
     // ── Package receiver ───────────────────────────────────────────────────────
 
     private fun registerPackageReceiver() {
@@ -377,22 +463,19 @@ class HomeActivity : AppCompatActivity() {
         registerReceiver(packageReceiver, filter)
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) return true
-        return super.onKeyDown(keyCode, event)
-    }
-
     override fun onResume() {
         super.onResume()
-        initialFocusSet = false  // always re-focus first app row when returning home
+        initialFocusSet = false
         vm.loadAll()
         vm.scheduleAutoRefresh()
+        resetIdleTimer()
     }
 
     override fun onPause() {
         super.onPause()
         vm.cancelAutoRefresh()
         stopSlideshow()
+        idleHandler.removeCallbacks(idleRunnable)
     }
 
     override fun onDestroy() {

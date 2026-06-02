@@ -1,0 +1,195 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="300dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#FF222222"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvChEditorTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFE53935"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:text="Channel" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="#FF888888"
+        android:textSize="11sp"
+        android:text="TITLE" />
+    <EditText
+        android:id="@+id/etChTitle"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="#33FFFFFF"
+        android:textColor="#FFFFFFFF"
+        android:textSize="14sp"
+        android:paddingHorizontal="10dp"
+        android:inputType="text"
+        android:singleLine="true" />
+
+    <LinearLayout
+        android:id="@+id/rowChVisible"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Visible" />
+        <Switch
+            android:id="@+id/switchChVisible"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:clickable="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rowChPinned"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Pinned to top" />
+        <Switch
+            android:id="@+id/switchChPinned"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:clickable="false" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/rowChSize"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Icon size" />
+        <TextView
+            android:id="@+id/tvChSizeValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFE53935"
+            android:textSize="14sp"
+            android:text="Global" />
+    </LinearLayout>
+
+    <!-- Source filter: only shown for grouped channel rows -->
+    <LinearLayout
+        android:id="@+id/rowChSourceFilter"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Source filter" />
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_arrow_right"
+            android:tint="#FF666666" />
+    </LinearLayout>
+
+    <!-- Hidden Items section -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="#FF888888"
+        android:textSize="11sp"
+        android:text="HIDDEN ITEMS" />
+
+    <TextView
+        android:id="@+id/tvNoHiddenItems"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:textColor="#FF555555"
+        android:textSize="13sp"
+        android:text="None hidden" />
+
+    <LinearLayout
+        android:id="@+id/llHiddenItems"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="4dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/btnChEditorCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:textColor="#FFB0B0B0"
+            android:textSize="13sp"
+            android:text="Cancel"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@android:color/transparent" />
+
+        <TextView
+            android:id="@+id/btnChEditorSave"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:layout_marginStart="8dp"
+            android:textColor="#FFE53935"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:text="Save"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@android:color/transparent" />
+    </LinearLayout>
+</LinearLayout>

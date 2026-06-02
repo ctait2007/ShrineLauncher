@@ -13,11 +13,17 @@ class PreferencesRepository(context: Context) {
         context.getSharedPreferences("shrine_launcher_prefs", Context.MODE_PRIVATE)
     private val gson = Gson()
 
+    init {
+        // v0.10.0 migration: wipe flat dismissed_content set (now per-channel)
+        if (prefs.contains("dismissed_content")) {
+            prefs.edit().remove("dismissed_content").apply()
+        }
+    }
+
     fun loadPrefs(): LauncherPrefs {
         val json = prefs.getString(KEY_PREFS, null) ?: return LauncherPrefs()
         val loaded = try { gson.fromJson(json, LauncherPrefs::class.java) ?: LauncherPrefs() }
                      catch (e: Exception) { LauncherPrefs() }
-        // One-time migration: correct swapped channelType on the two default channel rows.
         val fixedRows = loaded.rows.map { row ->
             when (row.id) {
                 "row_continue_watching" ->
@@ -31,7 +37,26 @@ class PreferencesRepository(context: Context) {
                 else -> row
             }
         }
-        return if (fixedRows == loaded.rows) loaded else loaded.copy(rows = fixedRows)
+        // Ensure built-in rows exist
+        val ensured = ensureBuiltInRows(fixedRows)
+        return if (ensured == loaded.rows) loaded else loaded.copy(rows = ensured)
+    }
+
+    private fun ensureBuiltInRows(rows: List<LauncherRow>): List<LauncherRow> {
+        val result = rows.toMutableList()
+        if (result.none { it.id == "row_favourites" }) {
+            result.add(LauncherRow(
+                id = "row_favourites", title = "Favourites",
+                kind = RowKind.CATEGORY, categoryType = CategoryType.FAVORITES
+            ))
+        }
+        if (result.none { it.id == "row_install" }) {
+            result.add(LauncherRow(
+                id = "row_install", title = "Install",
+                kind = RowKind.CATEGORY, categoryType = CategoryType.INSTALL
+            ))
+        }
+        return result
     }
 
     fun savePrefs(p: LauncherPrefs) {
@@ -101,14 +126,33 @@ class PreferencesRepository(context: Context) {
         }
     }
 
-    fun addDismissedContent(id: String) {
-        val current = getDismissedIds().toMutableSet()
-        current.add(id)
-        prefs.edit().putStringSet("dismissed_content", current).apply()
+    // ── Per-channel dismissed content (v0.10.0+) ─────────────────────────────
+
+    fun addDismissedForChannel(channelId: String, contentId: String) {
+        val key = dismissedKey(channelId)
+        val current = prefs.getStringSet(key, emptySet())!!.toMutableSet()
+        current.add(contentId)
+        prefs.edit().putStringSet(key, current).apply()
     }
 
-    fun getDismissedIds(): Set<String> =
-        prefs.getStringSet("dismissed_content", emptySet()) ?: emptySet()
+    fun getDismissedForChannel(channelId: String): Set<String> =
+        prefs.getStringSet(dismissedKey(channelId), emptySet()) ?: emptySet()
+
+    fun restoreDismissedForChannel(channelId: String, contentId: String) {
+        val key = dismissedKey(channelId)
+        val current = prefs.getStringSet(key, emptySet())!!.toMutableSet()
+        current.remove(contentId)
+        prefs.edit().putStringSet(key, current).apply()
+    }
+
+    fun getDismissedIdsForRow(row: com.shrine.launcher.data.model.LauncherRow): Set<String> =
+        getDismissedForChannel(row.id)
+
+    // Legacy shim — some call sites use this; routes to a global bucket that is always empty post-migration
+    fun getDismissedIds(): Set<String> = emptySet()
+    fun addDismissedContent(id: String) { /* no-op post-migration — callers should use addDismissedForChannel */ }
+
+    private fun dismissedKey(channelId: String) = "dismissed_ch_$channelId"
 
     companion object {
         private const val KEY_PREFS             = "launcher_prefs"

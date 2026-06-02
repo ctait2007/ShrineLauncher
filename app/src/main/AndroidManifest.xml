@@ -6,9 +6,10 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <!-- Granted via ADB: adb shell pm grant com.shrine.launcher android.permission.WRITE_SECURE_SETTINGS -->
-    <!-- Required for Force Stop functionality in the app context menu -->
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <!-- Granted via ADB for Force Stop: adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES -->
+    <!-- Granted via ADB for Silent Install: adb shell pm grant com.shrine.launcher android.permission.INSTALL_PACKAGES -->
+    <uses-permission android:name="android.permission.FORCE_STOP_PACKAGES" />
+    <uses-permission android:name="android.permission.INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="QueryAllPackagesPermission"/>
 
@@ -56,6 +57,31 @@
         <activity android:name=".ui.installer.AppInstallerActivity"
             android:exported="false"
             android:label="App Installer" />
+
+        <activity android:name=".ui.settings.ShrineSettingsActivity"
+            android:exported="false" android:label="Shrine Settings" />
+        <activity android:name=".ui.settings.GeneralSettingsActivity"
+            android:exported="false" android:label="General" />
+        <activity android:name=".ui.settings.AppearanceSettingsActivity"
+            android:exported="false" android:label="Appearance" />
+        <activity android:name=".ui.settings.CategoryAppearanceActivity"
+            android:exported="false" android:label="Category Appearance" />
+        <activity android:name=".ui.settings.CardAppearanceActivity"
+            android:exported="false" android:label="Card Appearance" />
+        <activity android:name=".ui.settings.WallpaperAppearanceActivity"
+            android:exported="false" android:label="Wallpaper" />
+        <activity android:name=".ui.settings.StatusBarSettingsActivity"
+            android:exported="false" android:label="Status Bar" />
+        <activity android:name=".ui.settings.IdleModeSettingsActivity"
+            android:exported="false" android:label="Idle Mode" />
+        <activity android:name=".ui.settings.ManageSettingsActivity"
+            android:exported="false" android:label="Manage Settings" />
+
+        <receiver android:name=".ui.installer.InstallResultReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="com.shrine.launcher.INSTALL_RESULT" />
+            </intent-filter>
+        </receiver>
 
         <!-- FileProvider for sharing APK files with system installer -->
         <provider

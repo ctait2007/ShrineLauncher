@@ -168,8 +168,7 @@ class TvContentRepository(private val context: Context) {
         }
 
         Log.d(TAG, "queryCombined[$type]: ${filtered.size} items")
-        val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
-        return filtered.filter { it.id !in dismissed }
+        return filtered
     }
 
     // ── Watch Next: read fields directly from cursor ──────────────────────────
@@ -335,8 +334,7 @@ class TvContentRepository(private val context: Context) {
         }
 
         Log.d(TAG, "PreviewPrograms[$type]: returning ${results.size} items")
-        val dismissed = PreferencesRepository.getInstance(context).getDismissedIds()
-        return results.filter { it.id !in dismissed }
+        return results
     }
 
     // ── Channels + per-channel programs ───────────────────────────────────────
@@ -447,6 +445,65 @@ class TvContentRepository(private val context: Context) {
     } catch (e: Exception) {
         pkg.substringAfterLast('.').replaceFirstChar { it.uppercase() }
     }
+
+    suspend fun getContentForTvProviderChannel(channelId: Long): List<TvContent> =
+        withContext(Dispatchers.IO) {
+            try {
+                val uri = TvContractCompat.buildPreviewProgramsUriForChannel(channelId)
+                val cursor = cr.query(uri, null, null, null, "_id DESC") ?: return@withContext emptyList()
+                val pkg = getPackageForChannel(channelId)
+                val channelName = getChannelName(channelId)
+                val results = mutableListOf<TvContent>()
+                cursor.use { c ->
+                    while (c.moveToNext() && results.size < 30) {
+                        try {
+                            val program = PreviewProgram.fromCursor(c)
+                            val lastPos  = program.lastPlaybackPositionMillis.toLong()
+                            val duration = program.durationMillis.toLong()
+                            results.add(TvContent(
+                                id          = "${channelId}_${program.id}",
+                                title       = program.title ?: continue,
+                                subtitle    = program.description?.ifBlank { channelName } ?: channelName,
+                                packageName = pkg,
+                                deepLinkUri = program.intentUri?.toString(),
+                                artworkUri  = (program.posterArtUri ?: program.thumbnailUri)?.toString(),
+                                durationMs  = duration,
+                                progressMs  = lastPos,
+                                channelType = ChannelType.TV_PROVIDER
+                            ))
+                        } catch (e: Exception) { }
+                    }
+                }
+                results
+            } catch (e: Exception) {
+                Log.w(TAG, "getContentForTvProviderChannel($channelId): ${e.message}")
+                emptyList()
+            }
+        }
+
+    suspend fun listTvProviderChannels(): List<Triple<Long, String, String>> =
+        withContext(Dispatchers.IO) {
+            val result = mutableListOf<Triple<Long, String, String>>()
+            try {
+                val cursor = cr.query(
+                    TvContractCompat.Channels.CONTENT_URI,
+                    null, null, null, null
+                ) ?: return@withContext emptyList()
+                cursor.use { c ->
+                    while (c.moveToNext()) {
+                        try {
+                            val ch = androidx.tvprovider.media.tv.PreviewChannel.fromCursor(c)
+                            val pkg  = getPackageForChannel(ch.id)
+                            val name = ch.displayName?.toString() ?: "Unknown"
+                            result.add(Triple(ch.id, name, pkg))
+                        } catch (e: Exception) { }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.w(TAG, "listTvProviderChannels: ${e.message}")
+            }
+            result
+        }
 
     companion object {
         private const val TAG = "TvContentRepo"

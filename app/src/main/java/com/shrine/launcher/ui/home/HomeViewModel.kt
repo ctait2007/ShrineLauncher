@@ -20,34 +20,38 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val prefRepo = PreferencesRepository.getInstance(application)
     private val tvRepo   = TvContentRepository.getInstance(application)
 
-    private val _allApps       = MutableLiveData<List<AppInfo>>()
+    private val _allApps          = MutableLiveData<List<AppInfo>>()
     val allApps: LiveData<List<AppInfo>> = _allApps
 
-    private val _recentApps    = MutableLiveData<List<AppInfo>>()
+    private val _recentApps       = MutableLiveData<List<AppInfo>>()
     val recentApps: LiveData<List<AppInfo>> = _recentApps
 
-    private val _rows          = MutableLiveData<List<LauncherRow>>()
+    private val _rows             = MutableLiveData<List<LauncherRow>>()
     val rows: LiveData<List<LauncherRow>> = _rows
 
-    private val _widgets       = MutableLiveData<List<PinnedWidget>>()
+    private val _widgets          = MutableLiveData<List<PinnedWidget>>()
     val widgets: LiveData<List<PinnedWidget>> = _widgets
 
     private val _continueWatching = MutableLiveData<List<TvContent>>()
     val continueWatching: LiveData<List<TvContent>> = _continueWatching
 
-    private val _watchNext     = MutableLiveData<List<TvContent>>()
+    private val _watchNext        = MutableLiveData<List<TvContent>>()
     val watchNext: LiveData<List<TvContent>> = _watchNext
 
-    private val _newForYou     = MutableLiveData<List<TvContent>>()
+    private val _newForYou        = MutableLiveData<List<TvContent>>()
     val newForYou: LiveData<List<TvContent>> = _newForYou
 
-    private val _theme         = MutableLiveData<LauncherTheme>()
+    // Map of rowId -> content for individual TvProvider channel rows
+    private val _tvProviderContent = MutableLiveData<Map<String, List<TvContent>>>()
+    val tvProviderContent: LiveData<Map<String, List<TvContent>>> = _tvProviderContent
+
+    private val _theme            = MutableLiveData<LauncherTheme>()
     val theme: LiveData<LauncherTheme> = _theme
 
-    private val _prefs         = MutableLiveData<LauncherPrefs>()
+    private val _prefs            = MutableLiveData<LauncherPrefs>()
     val prefs: LiveData<LauncherPrefs> = _prefs
 
-    private val _favourites    = MutableLiveData<List<String>>()
+    private val _favourites       = MutableLiveData<List<String>>()
     val favourites: LiveData<List<String>> = _favourites
 
     init { loadAll() }
@@ -63,8 +67,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         refreshJob = viewModelScope.launch(Dispatchers.IO) {
             while (true) {
-                kotlinx.coroutines.delay(minInterval * 60_000L)
-                android.util.Log.d("HomeViewModel", "Auto-refresh fired (${minInterval}min interval)")
+                delay(minInterval * 60_000L)
                 loadAll()
             }
         }
@@ -77,22 +80,39 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadAll() {
         viewModelScope.launch {
-            // Load everything on IO, then post all LiveData together on the main thread
-            // to avoid races where rows render before their app/content data is ready.
             val p          = withContext(Dispatchers.IO) { prefRepo.loadPrefs() }
             val allApps    = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             val recentApps = withContext(Dispatchers.IO) { appRepo.getRecentlyUsed() }
             val favs       = withContext(Dispatchers.IO) { prefRepo.loadFavourites() }
             val rows       = p.rows
-            val cwRow      = rows.find { it.channelType == ChannelType.CONTINUE_WATCHING }
-            val wnRow      = rows.find { it.channelType == ChannelType.WATCH_NEXT }
-            val cw         = tvRepo.getWatchNextPrograms(
-                ChannelType.CONTINUE_WATCHING, cwRow?.allowedPackages ?: emptyList())
-            val wn         = tvRepo.getWatchNextPrograms(
-                ChannelType.WATCH_NEXT, wnRow?.allowedPackages ?: emptyList())
-            val nfy        = tvRepo.getPreviewPrograms()
 
-            // All posted atomically on the main thread
+            val cwRow = rows.find { it.channelType == ChannelType.CONTINUE_WATCHING }
+            val wnRow = rows.find { it.channelType == ChannelType.WATCH_NEXT }
+
+            val cwDismissed = prefRepo.getDismissedForChannel(cwRow?.id ?: "row_continue_watching")
+            val wnDismissed = prefRepo.getDismissedForChannel(wnRow?.id ?: "row_watch_next")
+
+            val cw = tvRepo.getWatchNextPrograms(
+                ChannelType.CONTINUE_WATCHING, cwRow?.allowedPackages ?: emptyList()
+            ).filter { it.id !in cwDismissed }
+
+            val wn = tvRepo.getWatchNextPrograms(
+                ChannelType.WATCH_NEXT, wnRow?.allowedPackages ?: emptyList()
+            ).filter { it.id !in wnDismissed }
+
+            val nfy = tvRepo.getPreviewPrograms()
+
+            // Load individual TvProvider channel rows
+            val tvProviderRows = rows.filter { it.channelType == ChannelType.TV_PROVIDER && it.isVisible }
+            val tvProviderMap  = mutableMapOf<String, List<TvContent>>()
+            for (row in tvProviderRows) {
+                val channelId = row.tvProviderChannelId ?: continue
+                val dismissed = prefRepo.getDismissedForChannel(row.id)
+                val content   = tvRepo.getContentForTvProviderChannel(channelId)
+                    .filter { it.id !in dismissed }
+                tvProviderMap[row.id] = content
+            }
+
             _prefs.value            = p
             _rows.value             = rows.filter { it.isVisible }
             _widgets.value          = p.pinnedWidgets.sortedBy { it.position }
@@ -103,6 +123,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _continueWatching.value = cw
             _watchNext.value        = wn
             _newForYou.value        = nfy
+            _tvProviderContent.value = tvProviderMap
         }
     }
 
@@ -113,12 +134,29 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _favourites.value = prefRepo.loadFavourites()
     }
 
-    fun dismissChannelContent(content: com.shrine.launcher.data.model.TvContent) {
-        // Add to a persistent dismissed set so items stay hidden across reloads
-        prefRepo.addDismissedContent(content.id)
+    fun dismissChannelContent(content: TvContent) {
+        // Find which row this content belongs to and dismiss per-channel
+        val rows = _rows.value ?: emptyList()
+        val rowId = when (content.channelType) {
+            ChannelType.CONTINUE_WATCHING ->
+                rows.find { it.channelType == ChannelType.CONTINUE_WATCHING }?.id
+                    ?: "row_continue_watching"
+            ChannelType.WATCH_NEXT ->
+                rows.find { it.channelType == ChannelType.WATCH_NEXT }?.id
+                    ?: "row_watch_next"
+            ChannelType.TV_PROVIDER ->
+                rows.find { it.channelType == ChannelType.TV_PROVIDER &&
+                    (_tvProviderContent.value?.get(it.id)?.any { c -> c.id == content.id } == true)
+                }?.id ?: return
+            else -> return
+        }
+        prefRepo.addDismissedForChannel(rowId, content.id)
         _continueWatching.value = _continueWatching.value?.filter { it.id != content.id }
         _watchNext.value        = _watchNext.value?.filter { it.id != content.id }
         _newForYou.value        = _newForYou.value?.filter { it.id != content.id }
+        val current = _tvProviderContent.value?.toMutableMap() ?: return
+        current.replaceAll { _, list -> list.filter { it.id != content.id } }
+        _tvProviderContent.value = current
     }
 
     fun removeContinueWatching(id: String) {
@@ -130,7 +168,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         ChannelType.CONTINUE_WATCHING -> _continueWatching.value ?: emptyList()
         ChannelType.WATCH_NEXT        -> _watchNext.value ?: emptyList()
         ChannelType.NEW_FOR_YOU       -> _newForYou.value ?: emptyList()
+        ChannelType.TV_PROVIDER       -> _tvProviderContent.value?.get(row.id) ?: emptyList()
         else                          -> emptyList()
+    }
+
+    // Virtual AppInfo used as the single icon in the Install row
+    private val installAppInfo by lazy {
+        AppInfo(
+            packageName = "com.shrine.launcher.INSTALL_ROW",
+            label       = "App Installer",
+            icon        = null
+        )
     }
 
     fun getAppsForRow(row: LauncherRow): List<AppInfo> {
@@ -138,6 +186,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         return when (row.categoryType) {
             CategoryType.ALL_APPS        -> _allApps.value ?: emptyList()
             CategoryType.RECENTLY_OPENED -> _recentApps.value ?: emptyList()
+            CategoryType.INSTALL         -> listOf(installAppInfo)
             CategoryType.FAVORITES       -> {
                 val favs = _favourites.value ?: emptyList()
                 (_allApps.value ?: emptyList())

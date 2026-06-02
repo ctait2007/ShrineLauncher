@@ -85,17 +85,16 @@ class AppContextMenuDialog(
 
     private fun forceStopApp(packageName: String) {
         val hasPermission = context.checkSelfPermission(
-            android.Manifest.permission.WRITE_SECURE_SETTINGS
+            "android.permission.FORCE_STOP_PACKAGES"
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
         if (!hasPermission) {
             android.app.AlertDialog.Builder(context)
                 .setTitle("Permission Required")
                 .setMessage(
-                    "Force Stop requires a one-time setup.\n\n" +
-                    "Connect via ADB and run:\n\n" +
-                    "adb shell pm grant com.shrine.launcher android.permission.WRITE_SECURE_SETTINGS\n\n" +
-                    "Then try again. Opening App Info instead for now."
+                    "Force Stop requires a one-time ADB setup.\n\n" +
+                    "adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES\n\n" +
+                    "Then try again. Opening App Info instead."
                 )
                 .setPositiveButton("Open App Info") { _, _ ->
                     context.startActivity(
@@ -111,15 +110,15 @@ class AppContextMenuDialog(
         }
 
         try {
-            val process  = Runtime.getRuntime().exec(arrayOf("am", "force-stop", packageName))
-            val exitCode = process.waitFor()
-            android.util.Log.d("AppContextMenu", "force-stop $packageName exit=$exitCode")
-            if (exitCode == 0) {
-                Toast.makeText(context, "${app.label} stopped", Toast.LENGTH_SHORT).show()
-                return
-            }
+            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
+            val method = android.app.ActivityManager::class.java
+                .getDeclaredMethod("forceStopPackage", String::class.java)
+            method.isAccessible = true
+            method.invoke(am, packageName)
+            Toast.makeText(context, "${app.label} stopped", Toast.LENGTH_SHORT).show()
+            return
         } catch (e: Exception) {
-            android.util.Log.w("AppContextMenu", "am force-stop failed: ${e.message}")
+            android.util.Log.w("AppContextMenu", "forceStopPackage reflection failed: ${e.message}")
         }
 
         Toast.makeText(context, "Force stop failed — try App Info", Toast.LENGTH_SHORT).show()

@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="280dp"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:background="#FF222222"
+    android:padding="24dp">
+
+    <TextView
+        android:id="@+id/tvEditorTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textColor="#FFE53935"
+        android:textSize="14sp"
+        android:textStyle="bold"
+        android:text="Category"
+        android:letterSpacing="0.05" />
+
+    <!-- Title row -->
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:textColor="#FF888888"
+        android:textSize="11sp"
+        android:text="TITLE" />
+    <EditText
+        android:id="@+id/etRowTitle"
+        android:layout_width="match_parent"
+        android:layout_height="40dp"
+        android:layout_marginTop="4dp"
+        android:background="#33FFFFFF"
+        android:textColor="#FFFFFFFF"
+        android:textSize="14sp"
+        android:paddingHorizontal="10dp"
+        android:inputType="text"
+        android:singleLine="true" />
+
+    <!-- Visible toggle -->
+    <LinearLayout
+        android:id="@+id/rowVisible"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Visible" />
+        <Switch
+            android:id="@+id/switchVisible"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:clickable="false" />
+    </LinearLayout>
+
+    <!-- Pinned toggle -->
+    <LinearLayout
+        android:id="@+id/rowPinned"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Pinned to top" />
+        <Switch
+            android:id="@+id/switchPinned"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:focusable="false"
+            android:clickable="false" />
+    </LinearLayout>
+
+    <!-- Size row -->
+    <LinearLayout
+        android:id="@+id/rowSize"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Icon size" />
+        <TextView
+            android:id="@+id/tvSizeValue"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="#FFE53935"
+            android:textSize="14sp"
+            android:text="Global" />
+    </LinearLayout>
+
+    <!-- Manage Apps (hidden for built-in All Apps / Install rows) -->
+    <LinearLayout
+        android:id="@+id/rowManageApps"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textColor="#FFB0B0B0"
+            android:textSize="14sp"
+            android:text="Manage Apps" />
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:src="@drawable/ic_arrow_right"
+            android:tint="#FF666666" />
+    </LinearLayout>
+
+    <!-- Delete (hidden for built-in rows) -->
+    <LinearLayout
+        android:id="@+id/rowDelete"
+        android:layout_width="match_parent"
+        android:layout_height="44dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:focusable="true"
+        android:clickable="true"
+        android:background="@android:color/transparent">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="#FFCF6679"
+            android:textSize="14sp"
+            android:text="Delete category" />
+    </LinearLayout>
+
+    <!-- Buttons -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:orientation="horizontal"
+        android:gravity="end">
+
+        <TextView
+            android:id="@+id/btnEditorCancel"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:textColor="#FFB0B0B0"
+            android:textSize="13sp"
+            android:text="Cancel"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@android:color/transparent" />
+
+        <TextView
+            android:id="@+id/btnEditorSave"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:gravity="center"
+            android:paddingHorizontal="16dp"
+            android:layout_marginStart="8dp"
+            android:textColor="#FFE53935"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:text="Save"
+            android:focusable="true"
+            android:clickable="true"
+            android:background="@android:color/transparent" />
+    </LinearLayout>
+</LinearLayout>
