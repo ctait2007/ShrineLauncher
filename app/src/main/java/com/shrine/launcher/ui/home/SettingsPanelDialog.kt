@@ -52,8 +52,9 @@ class SettingsPanelDialog(
     context: Context,
     private val wallpaperUri: String? = null,
     private val onDismissed: (() -> Unit)? = null,
-    private val initialApp: AppInfo? = null,         // if set, open directly to context menu
-    private val onSettingsChanged: (() -> Unit)? = null  // called whenever a setting is saved
+    private val initialApp: AppInfo? = null,          // if set, open directly to context menu
+    private val initialRow: LauncherRow? = null,      // if set, open directly to that row's editor
+    private val onSettingsChanged: (() -> Unit)? = null
 ) : Dialog(context) {
 
     // ── Repos ──────────────────────────────────────────────────────────────────
@@ -111,10 +112,16 @@ class SettingsPanelDialog(
         // Apply rounded corners after the view is laid out
         body.post { applyRoundedCorners() }
 
-        if (initialApp != null) {
-            showPage(initialApp.label, false) { buildContextMenu(initialApp) }
-        } else {
-            showPage(null, false) { buildMainMenu() }
+        when {
+            initialApp != null ->
+                showPage(initialApp.label, false) { buildContextMenu(initialApp) }
+            initialRow != null ->
+                showPage(initialRow.title, false) {
+                    if (initialRow.kind == RowKind.CHANNEL) buildChannelEditor(initialRow)
+                    else buildCategoryEditor(initialRow)
+                }
+            else ->
+                showPage(null, false) { buildMainMenu() }
         }
     }
 
@@ -1165,22 +1172,15 @@ class SettingsPanelDialog(
         }
 
         addEntry("Force Stop", R.drawable.ic_install) {
-            val hasPerm = context.checkSelfPermission("android.permission.FORCE_STOP_PACKAGES") ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
-            if (hasPerm) {
-                try {
-                    val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-                    val m  = android.app.ActivityManager::class.java
-                        .getDeclaredMethod("forceStopPackage", String::class.java)
-                    m.isAccessible = true; m.invoke(am, app.packageName)
-                    Toast.makeText(context, "${app.label} stopped", Toast.LENGTH_SHORT).show()
-                } catch (e: Exception) {
-                    Toast.makeText(context, "Force stop failed", Toast.LENGTH_SHORT).show()
-                }
-            } else {
+            try {
+                val proc = Runtime.getRuntime().exec(arrayOf("am", "force-stop", app.packageName))
+                val success = proc.waitFor() == 0
                 Toast.makeText(context,
-                    "Run: adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES",
-                    Toast.LENGTH_LONG).show()
+                    if (success) "${app.label} stopped"
+                    else "Force stop failed — run: adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES",
+                    if (success) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
+            } catch (e: Exception) {
+                Toast.makeText(context, "Force stop failed: ${e.message}", Toast.LENGTH_SHORT).show()
             }
             dismiss()
         }
@@ -1215,15 +1215,20 @@ class SettingsPanelDialog(
     // PAGE: GENERAL
     // ═══════════════════════════════════════════════════════════════════════════
 
+    // Held between buildGeneral() and checkForUpdateInline() calls within the same page visit
+    private var updateStatusView: TextView? = null
+    private var updateInstallView: View? = null
+
     private fun buildGeneral() {
         val prefs = prefRepo.loadPrefs()
+        updateStatusView = null
+        updateInstallView = null
 
         addToggle("Enable Channels", checked = prefs.channelsEnabled) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked)); notifyChanged()
         }
 
         addEntry("Set as Default Launcher") {
-            // Try the dedicated Home Settings screen, then manage-defaults, then manual instructions
             val intents = listOf(
                 Intent(Settings.ACTION_HOME_SETTINGS),
                 Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
@@ -1243,10 +1248,37 @@ class SettingsPanelDialog(
             }
         }
 
-        addEntry("Check for Updates") { checkForUpdates() }
+        addEntry("Check for Updates") { checkForUpdateInline() }
+
+        // Status text — hidden until a check is run
+        val tvStatus = TextView(context).apply {
+            setTextColor(0xFF888888.toInt())
+            textSize = 11f
+            setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
+            visibility = View.GONE
+        }
+        body.addView(tvStatus)
+        updateStatusView = tvStatus
+
+        // Install button — hidden until an update is found
+        val btnInstall = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+        val btnLabel   = btnInstall.findViewById<TextView>(R.id.tvEntryLabel)
+        val btnIcon    = btnInstall.findViewById<android.widget.ImageView>(R.id.ivEntryIcon)
+        val btnArrow   = btnInstall.findViewById<android.widget.ImageView>(R.id.ivEntryArrow)
+        btnLabel.text = "Install update"
+        btnLabel.setTextColor(0xFFE53935.toInt())
+        btnIcon.visibility  = View.GONE
+        btnArrow.visibility = View.GONE
+        btnInstall.visibility = View.GONE
+        applyFocus(btnInstall, btnLabel, 0xFFE53935.toInt())
+        body.addView(btnInstall)
+        updateInstallView = btnInstall
     }
 
-    private fun checkForUpdates() {
+    private fun checkForUpdateInline() {
+        updateStatusView?.let { it.visibility = View.VISIBLE; it.text = "Checking…"; it.setTextColor(0xFF888888.toInt()) }
+        updateInstallView?.visibility = View.GONE
+
         scope.launch {
             val tag = withContext(Dispatchers.IO) {
                 runCatching {
@@ -1255,26 +1287,27 @@ class SettingsPanelDialog(
                 }.getOrNull()
             }
             if (tag == null) {
-                Toast.makeText(context, "Could not check for updates", Toast.LENGTH_SHORT).show()
+                updateStatusView?.let { it.text = "Could not check for updates"; it.setTextColor(0xFFCF6679.toInt()) }
                 return@launch
             }
             val current = try {
-                context.packageManager.getPackageInfo(context.packageName, 0).versionName
+                context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "0.0.0"
             } catch (e: Exception) { "0.0.0" }
+
             if (tag == current) {
-                Toast.makeText(context, "Up to date (v$current)", Toast.LENGTH_SHORT).show()
+                updateStatusView?.let { it.text = "Up to date — v$tag"; it.setTextColor(0xFF888888.toInt()) }
             } else {
-                AlertDialog.Builder(context)
-                    .setTitle("Update available")
-                    .setMessage("v$tag is available (you have v$current)")
-                    .setPositiveButton("Install") { _, _ ->
-                        val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$tag/shrine-v$tag-beta.apk"
+                updateStatusView?.let { it.text = "Update available — v$tag"; it.setTextColor(0xFFE53935.toInt()) }
+                val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$tag/shrine-v$tag-beta.apk"
+                updateInstallView?.let { btn ->
+                    btn.visibility = View.VISIBLE
+                    btn.setOnClickListener {
                         context.startActivity(Intent(context, AppInstallerActivity::class.java).apply {
                             putExtra("install_url", url)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                         })
                     }
-                    .setNegativeButton("Cancel", null).show()
+                }
             }
         }
     }
@@ -1599,9 +1632,10 @@ class SettingsPanelDialog(
             }
             tvStatus.text = "Downloading…"
             pageJob = scope.launch {
+                // Download to /data/local/tmp (accessible by pm install)
                 val apkFile = withContext(kotlinx.coroutines.Dispatchers.IO) {
                     try {
-                        val dest = java.io.File(context.cacheDir, "panel_install.apk")
+                        val dest = java.io.File("/data/local/tmp", "shrine_install.apk")
                         val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                         conn.instanceFollowRedirects = true; conn.connect()
                         val total = conn.contentLength; var done = 0
@@ -1618,26 +1652,36 @@ class SettingsPanelDialog(
                             }
                         }
                         conn.disconnect(); dest
-                    } catch (e: Exception) { null }
+                    } catch (e: Exception) {
+                        // Fallback to cacheDir if /data/local/tmp is not writable
+                        try {
+                            val dest = java.io.File(context.cacheDir, "shrine_install.apk")
+                            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                            conn.instanceFollowRedirects = true; conn.connect()
+                            conn.inputStream.use { input ->
+                                java.io.FileOutputStream(dest).use { out ->
+                                    val buf = ByteArray(8192); var n: Int
+                                    while (input.read(buf).also { n = it } != -1) out.write(buf, 0, n)
+                                }
+                            }
+                            conn.disconnect(); dest
+                        } catch (e2: Exception) { null }
+                    }
                 }
                 if (apkFile == null) {
                     tvStatus.text = "Download failed — check the URL"; return@launch
                 }
                 tvStatus.text = "Installing…"
-                // Try silent install first
-                val hasPerm = context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") ==
-                    android.content.pm.PackageManager.PERMISSION_GRANTED
-                if (hasPerm) {
-                    val ok = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                        try {
-                            val p = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", apkFile.absolutePath))
-                            val out = p.inputStream.bufferedReader().readText()
-                            p.waitFor() == 0 || out.contains("Success", ignoreCase = true)
-                        } catch (e: Exception) { false }
-                    }
-                    if (ok) { tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch }
+                // Silent install via pm — works when INSTALL_PACKAGES permission is granted
+                val ok = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val proc = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", apkFile.absolutePath))
+                        val output = proc.inputStream.bufferedReader().readText()
+                        proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
+                    } catch (e: Exception) { false }
                 }
-                // Fallback: system installer
+                if (ok) { tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch }
+                // Fallback: system installer UI
                 tvStatus.text = "Opening system installer…"
                 try {
                     val fileUri = androidx.core.content.FileProvider.getUriForFile(

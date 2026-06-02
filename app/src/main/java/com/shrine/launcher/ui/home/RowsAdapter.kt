@@ -1,5 +1,7 @@
 package com.shrine.launcher.ui.home
 
+import android.graphics.drawable.GradientDrawable
+import android.view.KeyEvent
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -17,6 +19,11 @@ sealed class RowItem {
     data class ChannelRow(val row: LauncherRow, val content: List<TvContent>) : RowItem()
 }
 
+val RowItem.launcherRow: LauncherRow get() = when (this) {
+    is RowItem.CategoryRow -> row
+    is RowItem.ChannelRow  -> row
+}
+
 class RowsAdapter(
     private val onAppClick: (AppInfo) -> Unit,
     private val onAppLongClick: (AppInfo) -> Unit,
@@ -25,13 +32,55 @@ class RowsAdapter(
     private val onRowFocused: (String) -> Unit,
     private val onRowSettingsClick: (LauncherRow) -> Unit,
     private val onRowDisplayModeToggle: (LauncherRow) -> Unit,
-    private val onRowIconSizeChange: (LauncherRow) -> Unit = {},
+    private val onRowMoveUp: (LauncherRow) -> Unit = {},
+    private val onRowMoveDown: (LauncherRow) -> Unit = {},
+    private val onPanelsCollapsed: (() -> Unit)? = null,
     private val cornerRadiusPercent: Int = 50,
     private val iconSizeDp: Int = 88,
     private val rowStartPaddingDp: Int = 24,
     private val itemSpacingDp: Int = 50,
-    private val rowSpacingDp: Int  = 24
+    private val rowSpacingDp: Int = 24
 ) : ListAdapter<RowItem, RowsAdapter.RowViewHolder>(DIFF) {
+
+    // ── Global panel state ────────────────────────────────────────────────────
+    var allPanelsOpen = false
+        private set
+
+    // After a row-move, focus this row's btnMoveRow and re-enter move-mode
+    var pendingMoveFocusRowId: String? = null
+
+    private var attachedRecyclerView: RecyclerView? = null
+
+    override fun onAttachedToRecyclerView(rv: RecyclerView) {
+        super.onAttachedToRecyclerView(rv)
+        attachedRecyclerView = rv
+    }
+
+    override fun onDetachedFromRecyclerView(rv: RecyclerView) {
+        super.onDetachedFromRecyclerView(rv)
+        attachedRecyclerView = null
+    }
+
+    /** Expand all currently-visible row panels. Called when any single panel opens. */
+    private fun expandAllVisiblePanels() {
+        val rv = attachedRecyclerView ?: return
+        for (i in 0 until rv.childCount) {
+            val vh = rv.getChildViewHolder(rv.getChildAt(i)) as? RowViewHolder
+            vh?.expandPanel(animate = true, grantFocus = false)
+        }
+    }
+
+    /** Collapse all currently-visible row panels and notify HomeActivity for focus restore. */
+    fun collapseAllPanels() {
+        if (!allPanelsOpen) return
+        allPanelsOpen = false
+        val rv = attachedRecyclerView ?: return
+        for (i in 0 until rv.childCount) {
+            val vh = rv.getChildViewHolder(rv.getChildAt(i)) as? RowViewHolder
+            vh?.collapsePanel()
+        }
+        onPanelsCollapsed?.invoke()
+    }
 
     override fun getItemViewType(position: Int) = when (getItem(position)) {
         is RowItem.CategoryRow -> 0
@@ -39,13 +88,22 @@ class RowsAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RowViewHolder {
-        val v = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_row, parent, false)
+        val v = LayoutInflater.from(parent.context).inflate(R.layout.item_row, parent, false)
         return RowViewHolder(v)
     }
 
-    override fun onBindViewHolder(holder: RowViewHolder, position: Int) =
-        holder.bind(getItem(position))
+    override fun onBindViewHolder(holder: RowViewHolder, position: Int) {
+        val item = getItem(position)
+        holder.bind(item)
+        if (allPanelsOpen) {
+            holder.expandPanel(animate = false, grantFocus = false)
+        }
+        val rowId = item.launcherRow.id
+        if (rowId == pendingMoveFocusRowId) {
+            pendingMoveFocusRowId = null
+            holder.itemView.post { holder.enterMoveMode() }
+        }
+    }
 
     inner class RowViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val tvLabel:        TextView     = view.findViewById(R.id.tvRowLabel)
@@ -53,41 +111,34 @@ class RowsAdapter(
         private val rvApps:         RecyclerView = view.findViewById(R.id.rvApps)
         private val btnRowSettings: ImageButton  = view.findViewById(R.id.btnRowSettings)
         private val btnDisplayMode: ImageButton  = view.findViewById(R.id.btnToggleDisplayMode)
-        private val btnIconSize:    ImageButton  = view.findViewById(R.id.btnIconSize)
+        private val btnMoveRow:     ImageButton  = view.findViewById(R.id.btnMoveRow)
         private val sidePanel:   View = view.findViewById(R.id.sidePanel)
         private val rowContent:  View = view.findViewById(R.id.rowContent)
         private val emptyState: View = view.findViewById(R.id.emptyState)
         private val tvEmptyMsg: android.widget.TextView = view.findViewById(R.id.tvEmptyMessage)
 
-        private var panelOpen        = false
-        private var isChannel        = false
-        private var firstRowItemView: View? = null
-        private var panelSlideDp     = 136f  // matches expandPanel value; used by collapsePanel
+        private var panelOpen = false
+        private var inMoveMode = false
+        private var currentRow: LauncherRow? = null
 
         fun bind(item: RowItem) {
-            val row = when (item) {
-                is RowItem.CategoryRow -> item.row
-                is RowItem.ChannelRow  -> item.row
-            }
+            val row = item.launcherRow
+            currentRow = row
             val dp = itemView.resources.displayMetrics.density
 
             tvLabel.text = row.title
-            isChannel    = item is RowItem.ChannelRow
 
+            // Reset panel state on rebind
             panelOpen = false
-            sidePanel.translationX     = -136f * dp
-            rowContent.translationX    = 0f
-            sidePanel.visibility       = View.INVISIBLE
-            btnRowSettings.visibility  = View.GONE
-            btnDisplayMode.visibility  = View.GONE
-            btnIconSize.visibility     = View.GONE
-            btnRowSettings.isFocusable = false
-            btnDisplayMode.isFocusable = false
-            btnIconSize.isFocusable    = false
-            (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
+            inMoveMode = false
+            sidePanel.translationX  = -136f * dp
+            rowContent.translationX = 0f
+            sidePanel.visibility    = View.INVISIBLE
+            listOf(btnRowSettings, btnDisplayMode, btnMoveRow).forEach {
+                it.visibility  = View.GONE
+                it.isFocusable = false
+            }
 
-            // Apply row bottom spacing via itemView padding — RecyclerView uses this
-            // for item sizing, making 0% spacing truly touch adjacent rows.
             val rowSpacingPx = (rowSpacingDp * dp).toInt()
             itemView.setPadding(0, 0, 0, rowSpacingPx)
             (itemView as? ViewGroup)?.clipToPadding = true
@@ -108,64 +159,16 @@ class RowsAdapter(
                 else R.drawable.ic_grid
             )
 
-            btnRowSettings.setOnClickListener { onRowSettingsClick(row) }
             btnDisplayMode.setOnClickListener { onRowDisplayModeToggle(row) }
-            btnIconSize.setOnClickListener {
-                val sizes  = arrayOf("Global (default)", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
-                val labels = arrayOf<String?>(null, "S", "M", "L", "XL")
-                val current = labels.indexOfFirst { it == row.iconSizeLabelOverride }.coerceAtLeast(0)
-                android.app.AlertDialog.Builder(itemView.context)
-                    .setTitle("Icon Size")
-                    .setSingleChoiceItems(sizes, current) { dialog, which ->
-                        onRowIconSizeChange(row.copy(iconSizeLabelOverride = labels[which]))
-                        dialog.dismiss()
-                        // Return focus to the size button so the panel stays open
-                        btnIconSize.post { btnIconSize.requestFocus() }
-                    }
-                    .setNegativeButton("Cancel", null)
-                    .show()
+            btnRowSettings.setOnClickListener { onRowSettingsClick(row) }
+            btnMoveRow.setOnClickListener {
+                inMoveMode = !inMoveMode
+                updateMoveModeVisual(inMoveMode)
+                btnMoveRow.requestFocus()
             }
 
-            listOf(btnRowSettings, btnDisplayMode, btnIconSize).forEach { btn ->
-                btn.setOnFocusChangeListener { v, hasFocus ->
-                    val dp2 = v.resources.displayMetrics.density
-                    val bg = android.graphics.drawable.GradientDrawable().apply {
-                        shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                        setColor(0x00000000)
-                        setStroke(if (hasFocus) (2 * dp2).toInt() else 0,
-                            if (hasFocus) 0xFFE53935.toInt() else 0)
-                        cornerRadius = 6 * dp2
-                    }
-                    v.background = bg
-                    if (!hasFocus) {
-                        sidePanel.postDelayed({
-                            if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnIconSize.isFocused) {
-                                collapsePanel()
-                            }
-                        }, 100)
-                    }
-                }
-            }
-
-            // D-pad right stays within panel; only the rightmost button (btnRowSettings) closes it
-            btnDisplayMode.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    btnIconSize.requestFocus(); true
-                } else false
-            }
-            btnIconSize.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    btnRowSettings.requestFocus(); true
-                } else false
-            }
-            btnRowSettings.setOnKeyListener { _, keyCode, event ->
-                if (keyCode == android.view.KeyEvent.KEYCODE_DPAD_RIGHT
-                        && event.action == android.view.KeyEvent.ACTION_DOWN) {
-                    collapsePanel(); true
-                } else false
-            }
+            // Set unified key listeners for all three panel buttons
+            setupPanelButtonKeys()
 
             when (item) {
                 is RowItem.CategoryRow -> bindCategory(item)
@@ -173,115 +176,217 @@ class RowsAdapter(
             }
         }
 
-        private fun expandPanel() {
+        private fun setupPanelButtonKeys() {
+            listOf(
+                btnDisplayMode to R.id.btnToggleDisplayMode,
+                btnMoveRow     to R.id.btnMoveRow,
+                btnRowSettings to R.id.btnRowSettings
+            ).forEach { (btn, btnId) ->
+                btn.setOnFocusChangeListener { v, hasFocus ->
+                    if (!hasFocus && !inMoveMode) {
+                        // Collapse only when focus leaves ALL three buttons
+                        sidePanel.postDelayed({
+                            if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnMoveRow.isFocused) {
+                                this@RowsAdapter.collapseAllPanels()
+                            }
+                        }, 100)
+                    }
+                    if (btn !== btnMoveRow || !inMoveMode) {
+                        applyButtonFocusRing(v, hasFocus)
+                    }
+                }
+
+                btn.setOnKeyListener { _, keyCode, event ->
+                    if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    val row = currentRow ?: return@setOnKeyListener false
+
+                    // Move-mode intercepts UP/DOWN exclusively
+                    if (btn === btnMoveRow && inMoveMode) {
+                        return@setOnKeyListener when (keyCode) {
+                            KeyEvent.KEYCODE_DPAD_UP -> {
+                                onRowMoveUp(row); true
+                            }
+                            KeyEvent.KEYCODE_DPAD_DOWN -> {
+                                onRowMoveDown(row); true
+                            }
+                            KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT,
+                            KeyEvent.KEYCODE_DPAD_CENTER, KeyEvent.KEYCODE_ENTER -> {
+                                inMoveMode = false
+                                updateMoveModeVisual(false)
+                                false  // pass through so normal left/right nav still works
+                            }
+                            KeyEvent.KEYCODE_BACK -> {
+                                inMoveMode = false
+                                updateMoveModeVisual(false)
+                                this@RowsAdapter.collapseAllPanels()
+                                true
+                            }
+                            else -> false
+                        }
+                    }
+
+                    // Normal panel-button key handling
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            navigateToPanelDirection(-1, btnId); true
+                        }
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            navigateToPanelDirection(+1, btnId); true
+                        }
+                        KeyEvent.KEYCODE_DPAD_RIGHT -> when (btn) {
+                            btnDisplayMode -> { btnMoveRow.requestFocus(); true }
+                            btnMoveRow     -> { btnRowSettings.requestFocus(); true }
+                            btnRowSettings -> { this@RowsAdapter.collapseAllPanels(); true }
+                            else -> false
+                        }
+                        KeyEvent.KEYCODE_DPAD_LEFT -> when (btn) {
+                            btnRowSettings -> { btnMoveRow.requestFocus(); true }
+                            btnMoveRow     -> { btnDisplayMode.requestFocus(); true }
+                            btnDisplayMode -> { this@RowsAdapter.collapseAllPanels(); true }
+                            else -> false
+                        }
+                        else -> false
+                    }
+                }
+            }
+        }
+
+        /** Navigate UP (-1) or DOWN (+1) to the same button in an adjacent row's panel. */
+        private fun navigateToPanelDirection(delta: Int, btnId: Int) {
+            val pos = adapterPosition
+            if (pos == RecyclerView.NO_POSITION) return
+            val targetPos = pos + delta
+            if (targetPos < 0 || targetPos >= itemCount) return
+            val rv = attachedRecyclerView ?: return
+            val lm = rv.layoutManager as? LinearLayoutManager ?: return
+            val targetView = lm.findViewByPosition(targetPos) ?: return
+            targetView.findViewById<View>(btnId)?.takeIf { it.isFocusable }?.requestFocus()
+        }
+
+        fun expandPanel(animate: Boolean = true, grantFocus: Boolean = true) {
             if (panelOpen) return
             panelOpen = true
             val dp = itemView.resources.displayMetrics.density
-            // Store the first visible item so focus can return to it on close
-            firstRowItemView = (rvApps.layoutManager as? LinearLayoutManager)
-                ?.findViewByPosition(0)
-            sidePanel.visibility       = View.VISIBLE
-            btnRowSettings.visibility  = View.VISIBLE
-            btnIconSize.visibility     = View.VISIBLE
-            btnRowSettings.isFocusable = true
-            btnIconSize.isFocusable    = true
-            // For category rows show display mode toggle; hide for channel rows.
-            // Channel panels only have 2 buttons (btnIconSize + btnRowSettings = ~92dp)
-            // so rowContent only needs to slide 92dp instead of 136dp.
-            val rowContentSlideDp: Float
-            if (!isChannel) {
-                btnDisplayMode.visibility  = View.VISIBLE
-                btnDisplayMode.isFocusable = true
-                rowContentSlideDp = 136f
-                // Restore btnIconSize margin (no extra start margin needed in 3-button layout)
-                (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
-            } else {
-                btnDisplayMode.visibility  = View.GONE
-                btnDisplayMode.isFocusable = false
-                rowContentSlideDp = 92f
-                // Add a start margin to the first visible button so it doesn't sit flush left
-                (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)
-                    ?.marginStart = (8 * dp).toInt()
+
+            sidePanel.visibility    = View.VISIBLE
+            listOf(btnDisplayMode, btnMoveRow, btnRowSettings).forEach {
+                it.visibility  = View.VISIBLE
+                it.isFocusable = true
             }
-            panelSlideDp = rowContentSlideDp  // remember for collapsePanel
-            btnIconSize.requestLayout()
+
+            // Block cards from receiving focus while panel is open
+            rvApps.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
-            // Block icon/channel cards from receiving focus while panel is open.
-            // Translation is visual-only — layout bounds don't move — so without this,
-            // the focus traversal algorithm treats card positions as overlapping the
-            // panel buttons and D-pad navigation jumps unpredictably between them.
-            rvApps.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+
+            if (animate) {
+                sidePanel.animate()
+                    .translationX(0f)
+                    .setDuration(150)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .withEndAction {
+                        sidePanel.translationX = 0f
+                        if (grantFocus) btnRowSettings.post { btnRowSettings.requestFocus() }
+                    }
+                    .start()
+                rowContent.animate()
+                    .translationX(136f * dp)
+                    .setDuration(150)
+                    .setInterpolator(android.view.animation.DecelerateInterpolator())
+                    .start()
+            } else {
+                sidePanel.translationX  = 0f
+                rowContent.translationX = 136f * dp
+                if (grantFocus) btnRowSettings.post { btnRowSettings.requestFocus() }
+            }
+        }
+
+        fun collapsePanel() {
+            if (!panelOpen) return
+            panelOpen = false
+            inMoveMode = false
+            val dp = itemView.resources.displayMetrics.density
+
+            listOf(btnRowSettings, btnDisplayMode, btnMoveRow).forEach {
+                it.isFocusable = false
+            }
+            rvApps.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+            updateMoveModeVisual(false)
+
+            sidePanel.clearAnimation()
+            rowContent.clearAnimation()
             sidePanel.animate()
-                .translationX(0f)
+                .translationX(-136f * dp)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {
-                    sidePanel.translationX = 0f
-                    // Always open with focus on the rightmost button (btnRowSettings)
-                    btnRowSettings.post { btnRowSettings.requestFocus() }
+                    sidePanel.visibility    = View.INVISIBLE
+                    listOf(btnRowSettings, btnDisplayMode, btnMoveRow).forEach {
+                        it.visibility = View.GONE
+                    }
                 }
                 .start()
             rowContent.animate()
-                .translationX(rowContentSlideDp * dp)
+                .translationX(0f)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .start()
         }
 
-        private fun collapsePanel() {
-            if (!panelOpen) return
-            panelOpen = false
+        /** Enter move-mode and focus btnMoveRow (used after a row swap to restore state). */
+        fun enterMoveMode() {
+            inMoveMode = true
+            updateMoveModeVisual(true)
+            btnMoveRow.requestFocus()
+        }
+
+        private fun updateMoveModeVisual(active: Boolean) {
             val dp = itemView.resources.displayMetrics.density
-            btnRowSettings.isFocusable = false
-            btnDisplayMode.isFocusable = false
-            btnIconSize.isFocusable    = false
-            // Reset channel-mode start margin on btnIconSize
-            (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
-            btnIconSize.requestLayout()
+            btnMoveRow.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(if (active) 0x33E53935.toInt() else 0x00000000)
+                setStroke(
+                    if (active) (2 * dp).toInt() else 0,
+                    if (active) 0xFFE53935.toInt() else 0
+                )
+                cornerRadius = 6 * dp
+            }
+        }
 
-            // Restore card focusability before requesting focus so the target view
-            // can actually accept it.
-            rvApps.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
+        private fun applyButtonFocusRing(v: View, hasFocus: Boolean) {
+            val dp = v.resources.displayMetrics.density
+            v.background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(0x00000000)
+                setStroke(
+                    if (hasFocus) (2 * dp).toInt() else 0,
+                    if (hasFocus) 0xFFE53935.toInt() else 0
+                )
+                cornerRadius = 6 * dp
+            }
+        }
 
-            // Restore focus SYNCHRONOUSLY before the animation starts so the layout
-            // system never briefly assigns focus to an unintended view during the transition.
-            val lm = rvApps.layoutManager as? LinearLayoutManager
-            val target = lm?.findViewByPosition(0) ?: firstRowItemView
-            target?.requestFocus()
-
-            sidePanel.clearAnimation()
-            rowContent.clearAnimation()
-            sidePanel.animate()
-                .translationX(-panelSlideDp * dp)
-                .setDuration(150)
-                .setInterpolator(android.view.animation.DecelerateInterpolator())
-                .withEndAction {
-                    sidePanel.visibility      = View.INVISIBLE
-                    btnRowSettings.visibility = View.GONE
-                    btnDisplayMode.visibility = View.GONE
-                    btnIconSize.visibility    = View.GONE
-                }
-                .start()
-            rowContent.animate()
-                .translationX(0f)
-                .setDuration(150)
-                .setInterpolator(android.view.animation.DecelerateInterpolator())
-                .start()
+        private fun triggerPanelOpen() {
+            if (!allPanelsOpen) {
+                allPanelsOpen = true
+                // Expand this row with focus, all others without
+                expandPanel(animate = true, grantFocus = true)
+                expandAllVisiblePanels()
+            } else {
+                expandPanel(animate = true, grantFocus = true)
+            }
         }
 
         private fun addItemSpacingDecoration() {
             rvApps.runCatching { removeItemDecorationAt(0) }
-            // focusBorderFrame now has 0 padding so there is no inherent gap in either
-            // category or channel rows — item spacing maps directly to decoration offset.
-            val inherentGapDp = 0
             rvApps.addItemDecoration(object : RecyclerView.ItemDecoration() {
                 override fun getItemOffsets(
                     outRect: android.graphics.Rect, view: View,
                     parent: RecyclerView, state: RecyclerView.State
                 ) {
                     val d = view.resources.displayMetrics.density
-                    outRect.right = ((itemSpacingDp - inherentGapDp) * d).toInt()
+                    outRect.right = (itemSpacingDp * d).toInt()
                 }
             })
         }
@@ -305,7 +410,7 @@ class RowsAdapter(
                 onAppClick          = onAppClick,
                 onAppLongClick      = onAppLongClick,
                 onFocused           = { onRowFocused(item.row.title) },
-                onLeftFromFirst     = { expandPanel() }
+                onLeftFromFirst     = { triggerPanelOpen() }
             )
             val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
             rvApps.setPadding(paddingPx, 0, 0, 0)
@@ -346,10 +451,10 @@ class RowsAdapter(
                 onClick             = onContentClick,
                 onLongClick         = onContentLongClick,
                 onFocused           = { onRowFocused(item.row.title) },
-                onLeftFromFirst     = { expandPanel() }
+                onLeftFromFirst     = { triggerPanelOpen() }
             )
-            val paddingPx2 = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
-            rvApps.setPadding(paddingPx2, 0, 0, 0)
+            val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
+            rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
             rvApps.layoutManager =
@@ -363,11 +468,8 @@ class RowsAdapter(
 
     companion object {
         val DIFF = object : DiffUtil.ItemCallback<RowItem>() {
-            override fun areItemsTheSame(a: RowItem, b: RowItem): Boolean {
-                val aId = when (a) { is RowItem.CategoryRow -> a.row.id; is RowItem.ChannelRow -> a.row.id }
-                val bId = when (b) { is RowItem.CategoryRow -> b.row.id; is RowItem.ChannelRow -> b.row.id }
-                return aId == bId
-            }
+            override fun areItemsTheSame(a: RowItem, b: RowItem) =
+                a.launcherRow.id == b.launcherRow.id
             override fun areContentsTheSame(a: RowItem, b: RowItem) = a == b
         }
     }

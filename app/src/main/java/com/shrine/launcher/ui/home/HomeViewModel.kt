@@ -217,4 +217,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         prefRepo.saveRows(rows)
         _rows.value = rows.filter { it.isVisible }
     }
+
+    fun reorderRows(newOrder: List<LauncherRow>) {
+        viewModelScope.launch(Dispatchers.IO) {
+            prefRepo.reorderRows(newOrder)
+        }
+    }
 }

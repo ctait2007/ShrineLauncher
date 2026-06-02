@@ -103,13 +103,13 @@
             android:layout_marginEnd="4dp" />
 
         <ImageButton
-            android:id="@+id/btnIconSize"
+            android:id="@+id/btnMoveRow"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:src="@drawable/ic_format_size"
+            android:src="@drawable/ic_drag_handle"
             android:background="@drawable/selector_focusable_item"
             android:tint="@color/text_primary"
-            android:contentDescription="Icon size"
+            android:contentDescription="Move row"
             android:focusable="false"
             android:padding="6dp"
             android:layout_marginEnd="4dp" />

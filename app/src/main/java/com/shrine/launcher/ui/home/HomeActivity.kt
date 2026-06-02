@@ -150,13 +150,42 @@ class HomeActivity : AppCompatActivity() {
             onContentClick         = { content -> launchContent(content) },
             onContentLongClick     = { content -> showContentContextMenu(content) },
             onRowFocused           = { _ -> },
-            onRowSettingsClick     = { row -> showRowSettingsDialog(row) },
+            onRowSettingsClick     = { row -> openPanelAtRowEditor(row) },
             onRowDisplayModeToggle = { row ->
                 vm.updateRowDisplayMode(row.id,
                     if (row.cardDisplayMode == CardDisplayMode.ICON)
                         CardDisplayMode.BANNER else CardDisplayMode.ICON)
             },
-            onRowIconSizeChange    = { row -> vm.updateRow(row) },
+            onRowMoveUp = { row ->
+                val items = rowsAdapter.currentList
+                val idx = items.indexOfFirst { it.launcherRow.id == row.id }
+                if (idx > 0) {
+                    val newItems = items.toMutableList()
+                    val t = newItems[idx]; newItems[idx] = newItems[idx - 1]; newItems[idx - 1] = t
+                    rowsAdapter.pendingMoveFocusRowId = row.id
+                    rowsAdapter.submitList(ArrayList(newItems))
+                    vm.reorderRows(newItems.map { it.launcherRow })
+                }
+            },
+            onRowMoveDown = { row ->
+                val items = rowsAdapter.currentList
+                val idx = items.indexOfFirst { it.launcherRow.id == row.id }
+                if (idx >= 0 && idx < items.size - 1) {
+                    val newItems = items.toMutableList()
+                    val t = newItems[idx]; newItems[idx] = newItems[idx + 1]; newItems[idx + 1] = t
+                    rowsAdapter.pendingMoveFocusRowId = row.id
+                    rowsAdapter.submitList(ArrayList(newItems))
+                    vm.reorderRows(newItems.map { it.launcherRow })
+                }
+            },
+            onPanelsCollapsed = {
+                val target = lastRowsFocus?.get()
+                if (target != null && target.isAttachedToWindow && target.isFocusable) {
+                    target.requestFocus()
+                } else {
+                    binding.rvRows.post { focusFirstCardOfFirstVisibleRow() }
+                }
+            },
             cornerRadiusPercent    = config.cornerRadius,
             iconSizeDp             = iconSizeDp(config.iconSize),
             rowStartPaddingDp      = config.rowStart,
@@ -170,6 +199,20 @@ class HomeActivity : AppCompatActivity() {
             isFocusable = false
             clipChildren = false
             clipToPadding = false
+        }
+    }
+
+    private fun focusFirstCardOfFirstVisibleRow() {
+        val lm = binding.rvRows.layoutManager as? LinearLayoutManager ?: return
+        for (i in 0 until binding.rvRows.childCount) {
+            val child = binding.rvRows.getChildAt(i) ?: continue
+            val rvApps = child.findViewById<androidx.recyclerview.widget.RecyclerView>(com.shrine.launcher.R.id.rvApps) ?: continue
+            if (rvApps.visibility != View.VISIBLE) continue
+            val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
+            val firstItem = innerLm.findViewByPosition(0) ?: continue
+            val card = firstItem.findViewById<View>(com.shrine.launcher.R.id.cardRoot) ?: firstItem
+            card.requestFocus()
+            return
         }
     }
 
@@ -261,20 +304,22 @@ class HomeActivity : AppCompatActivity() {
         val list = rowsAdapter.currentList
         val appsRvId   = com.shrine.launcher.R.id.rvApps
         val cardRootId = com.shrine.launcher.R.id.cardRoot
-        for (i in list.indices) {
-            val item = list[i]
-            if (item !is RowItem.CategoryRow || item.apps.isEmpty()) continue
-            val rowView = lm.findViewByPosition(i) ?: continue
-            val rvApps  = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId)
-                ?: continue
-            if (rvApps.visibility != View.VISIBLE) continue
-            val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: continue
-            val firstItem = innerLm.findViewByPosition(0) ?: continue
-            val card = firstItem.findViewById<View>(cardRootId) ?: firstItem
-            card.requestFocus()
-            return
-        }
-        initialFocusSet = false
+
+        // Prefer ALL_APPS row; fall back to first non-empty category row
+        val targetIndex = list.indexOfFirst { it is RowItem.CategoryRow && it.apps.isNotEmpty() &&
+            (it as RowItem.CategoryRow).row.categoryType == com.shrine.launcher.data.model.CategoryType.ALL_APPS
+        }.takeIf { it >= 0 }
+            ?: list.indexOfFirst { it is RowItem.CategoryRow && (it as RowItem.CategoryRow).apps.isNotEmpty() }
+                .takeIf { it >= 0 }
+            ?: run { initialFocusSet = false; return }
+
+        val rowView = lm.findViewByPosition(targetIndex) ?: run { initialFocusSet = false; return }
+        val rvApps  = rowView.findViewById<androidx.recyclerview.widget.RecyclerView>(appsRvId) ?: return
+        if (rvApps.visibility != View.VISIBLE) return
+        val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: return
+        val firstItem = innerLm.findViewByPosition(0) ?: return
+        val card = firstItem.findViewById<View>(cardRootId) ?: firstItem
+        card.requestFocus()
     }
 
     // ── Wallpaper / Slideshow ──────────────────────────────────────────────────
@@ -476,6 +521,26 @@ class HomeActivity : AppCompatActivity() {
         ).show()
     }
 
+    private fun openPanelAtRowEditor(row: LauncherRow) {
+        val wallpaperUri = vm.prefs.value?.wallpaperUri
+            ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
+        val dialog = SettingsPanelDialog(
+            context           = this,
+            wallpaperUri      = wallpaperUri,
+            initialRow        = row,
+            onDismissed       = {
+                activePanel = null
+                val target = lastRowsFocus?.get()
+                if (target != null && target.isAttachedToWindow) target.requestFocus()
+                else binding.rvRows.requestFocus()
+                vm.loadAll()
+            },
+            onSettingsChanged = { vm.loadAll() }
+        )
+        activePanel = dialog
+        dialog.show()
+    }
+
     private fun showRowSettingsDialog(row: LauncherRow) {
         val apps = vm.allApps.value
         if (apps.isNullOrEmpty()) {
@@ -521,23 +586,80 @@ class HomeActivity : AppCompatActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (isIdle) {
             if (event.action == KeyEvent.ACTION_DOWN) exitIdle()
-            return true  // consume the event — don't propagate
+            return true
         }
         if (event.action == KeyEvent.ACTION_DOWN) {
-            // Capture the focused card BEFORE the key event moves focus away from it.
-            // currentFocus here is the view that has focus right now, so pressing DPAD_UP
-            // while on a card records that card before focus shifts to e.g. btnSettings.
             val focused = currentFocus
             if (focused != null && focused.isRowsDescendant()) {
                 lastRowsFocus = java.lang.ref.WeakReference(focused)
+                // Row-to-row and row-to-statusbar navigation (only when panels are closed)
+                if (!rowsAdapter.allPanelsOpen &&
+                    (event.keyCode == KeyEvent.KEYCODE_DPAD_UP ||
+                     event.keyCode == KeyEvent.KEYCODE_DPAD_DOWN)) {
+                    if (handleRowNavigation(event.keyCode)) {
+                        resetIdleTimer()
+                        return true
+                    }
+                }
             }
             resetIdleTimer()
         }
         return super.dispatchKeyEvent(event)
     }
 
+    /** Intercept vertical d-pad from a card to navigate rows correctly. */
+    private fun handleRowNavigation(keyCode: Int): Boolean {
+        // Find which child of rvRows currently holds focus
+        var currentRowPos = -1
+        for (i in 0 until binding.rvRows.childCount) {
+            val child = binding.rvRows.getChildAt(i) ?: continue
+            if (child.hasFocus()) {
+                currentRowPos = binding.rvRows.getChildAdapterPosition(child)
+                break
+            }
+        }
+        if (currentRowPos == -1) return false
+
+        if (keyCode == KeyEvent.KEYCODE_DPAD_UP) {
+            return if (currentRowPos == 0) {
+                binding.btnSettings.requestFocus()
+                true
+            } else {
+                focusFirstCardOfRow(currentRowPos - 1)
+            }
+        } else {
+            return focusFirstCardOfRow(currentRowPos + 1)
+        }
+    }
+
+    private fun focusFirstCardOfRow(targetPos: Int): Boolean {
+        if (targetPos < 0 || targetPos >= rowsAdapter.itemCount) return false
+        val lm = binding.rvRows.layoutManager as? LinearLayoutManager ?: return false
+        // Scroll to ensure the target row is visible, then focus its first card
+        binding.rvRows.scrollToPosition(targetPos)
+        binding.rvRows.post {
+            val targetView = lm.findViewByPosition(targetPos) ?: return@post
+            val rvApps = targetView.findViewById<androidx.recyclerview.widget.RecyclerView>(
+                com.shrine.launcher.R.id.rvApps) ?: return@post
+            if (rvApps.visibility != View.VISIBLE) return@post
+            val innerLm = rvApps.layoutManager as? LinearLayoutManager ?: return@post
+            innerLm.scrollToPosition(0)
+            rvApps.post {
+                val firstItem = innerLm.findViewByPosition(0) ?: return@post
+                val card = firstItem.findViewById<View>(com.shrine.launcher.R.id.cardRoot) ?: firstItem
+                card.requestFocus()
+            }
+        }
+        return true
+    }
+
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_BACK) return true
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (rowsAdapter.allPanelsOpen) {
+                rowsAdapter.collapseAllPanels()
+            }
+            return true
+        }
         return super.onKeyDown(keyCode, event)
     }
 
