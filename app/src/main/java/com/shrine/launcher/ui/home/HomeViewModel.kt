@@ -214,6 +214,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /** Prepends [pkg] to the default row's app list, if the default row is a CATEGORY row. */
+    fun addPackageToDefaultRow(pkg: String) {
+        val prefs = prefRepo.loadPrefs()
+        val row = prefs.rows.find { it.id == prefs.defaultRowId } ?: return
+        if (row.kind != RowKind.CATEGORY || pkg in row.apps) return
+        prefRepo.updateRow(row.copy(apps = (listOf(pkg) + row.apps).toMutableList()))
+    }
+
     fun updateRowDisplayMode(rowId: String, mode: CardDisplayMode) {
         val rows = prefRepo.loadRows().map {
             if (it.id == rowId) it.copy(cardDisplayMode = mode) else it

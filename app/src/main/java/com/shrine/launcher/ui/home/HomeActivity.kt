@@ -83,7 +83,9 @@ class HomeActivity : AppCompatActivity() {
     private val packageReceiver = object : BroadcastReceiver() {
         override fun onReceive(ctx: Context, intent: Intent) {
             if (intent.action == Intent.ACTION_PACKAGE_ADDED) {
-                vm.recentlyInstalledPackage = intent.data?.schemeSpecificPart
+                val pkg = intent.data?.schemeSpecificPart
+                vm.recentlyInstalledPackage = pkg
+                if (pkg != null) vm.addPackageToDefaultRow(pkg)
             }
             vm.loadAll()
         }

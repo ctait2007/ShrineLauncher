@@ -23,6 +23,7 @@ class ChannelAdapter(
     private val displayMode: CardDisplayMode = CardDisplayMode.BANNER,
     private val cornerRadiusPercent: Int = 50,
     private val iconSizeDp: Int = 88,
+    private val itemSpacingDp: Int = 10,
     private val onClick: (TvContent) -> Unit,
     private val onLongClick: (TvContent) -> Unit,
     private val onFocused: () -> Unit,
@@ -149,17 +150,16 @@ class ChannelAdapter(
                         if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
                             val nextView = lm.findViewByPosition(next)
                             if (nextView != null) {
-                                nextView.requestFocus()
+                                (nextView.findViewById<View>(R.id.channelCardRoot) ?: nextView).requestFocus()
                             } else {
-                                rv.smoothScrollToPosition(next)
-                                rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
-                                    override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
-                                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
-                                            rv.removeOnScrollListener(this)
-                                            lm.findViewByPosition(next)?.requestFocus()
-                                        }
+                                val density = cardRoot.resources.displayMetrics.density
+                                val stepPx = cardRoot.width + (itemSpacingDp * density).toInt()
+                                rv.scrollBy(stepPx, 0)
+                                rv.post {
+                                    lm.findViewByPosition(next)?.let { v ->
+                                        (v.findViewById<View>(R.id.channelCardRoot) ?: v).requestFocus()
                                     }
-                                })
+                                }
                             }
                         }
                         true

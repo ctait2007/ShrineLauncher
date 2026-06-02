@@ -114,7 +114,8 @@ data class LauncherPrefs(
     val idleTimeoutSeconds: Int             = 120,
     val progressBarEnabled: Boolean         = true,
     val wallpaperSlideshow: Boolean         = false,
-    val showWifiButton: Boolean             = false
+    val showWifiButton: Boolean             = false,
+    val defaultRowId: String?               = null
 )
 
 fun iconSizeDp(label: String): Int = when (label) {

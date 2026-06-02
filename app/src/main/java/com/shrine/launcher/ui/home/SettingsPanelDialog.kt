@@ -640,6 +640,18 @@ class SettingsPanelDialog(
             sizeOptionViews.forEach { it.visibility = if (sizeExpanded) View.VISIBLE else View.GONE }
         }
 
+        // Default row toggle
+        val isCatDefault = prefRepo.loadPrefs().defaultRowId == row.id
+        addEntry(
+            if (isCatDefault) "Default Row ★" else "Set as Default Row",
+            R.drawable.ic_pin,
+            labelColor = if (isCatDefault) 0xFF4CAF50.toInt() else 0xFFB0B0B0.toInt()
+        ) {
+            val p = prefRepo.loadPrefs()
+            prefRepo.savePrefs(p.copy(defaultRowId = if (p.defaultRowId == row.id) null else row.id))
+            rawShowPage(currentTitle); buildCategoryEditor(row)
+        }
+
         // Manage apps (custom + favourites only)
         if (row.categoryType !in listOf(CategoryType.ALL_APPS, CategoryType.INSTALL)) {
             addEntry("Manage Apps", R.drawable.ic_settings_rows, showArrow = true) {
@@ -1047,6 +1059,18 @@ class SettingsPanelDialog(
         chSizeHeader.setOnClickListener {
             chSizeExpanded = !chSizeExpanded
             chSizeOptionViews.forEach { it.visibility = if (chSizeExpanded) View.VISIBLE else View.GONE }
+        }
+
+        // Default row toggle
+        val isChDefault = prefRepo.loadPrefs().defaultRowId == row.id
+        addEntry(
+            if (isChDefault) "Default Row ★" else "Set as Default Row",
+            R.drawable.ic_pin,
+            labelColor = if (isChDefault) 0xFF4CAF50.toInt() else 0xFFB0B0B0.toInt()
+        ) {
+            val p = prefRepo.loadPrefs()
+            prefRepo.savePrefs(p.copy(defaultRowId = if (p.defaultRowId == row.id) null else row.id))
+            rawShowPage(currentTitle); buildChannelEditor(row)
         }
 
         // Source filter only for grouped channel rows
