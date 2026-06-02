@@ -122,15 +122,14 @@ class TvContentRepository(private val context: Context) {
 
         val filtered = when (type) {
             ChannelType.CONTINUE_WATCHING -> {
-                // PreviewPrograms carry the authoritative lastPlaybackPositionMillis for
-                // apps like Nuvio. WatchNextPrograms for the same content often have
-                // progressMs=0 due to a Fire TV provider quirk even when real position data
-                // exists in the corresponding PreviewProgram.
-                val fromPreview = queryAllPreviewPrograms(type)
-                    .filter { it.progressMs > 0L && it.durationMs > 0L }
+                // Query all PreviewPrograms once; use filtered subset for progress enrichment,
+                // but use the full set for the previewOnly fallback so items with 0 playtime
+                // (genuinely new, just-started content) are still included.
+                val allPreview     = queryAllPreviewPrograms(type)
+                val enrichedPreview = allPreview.filter { it.progressMs > 0L && it.durationMs > 0L }
 
                 // Build a lookup from "packageName|title" -> PreviewProgram with real progress
-                val previewProgressByKey = fromPreview
+                val previewProgressByKey = enrichedPreview
                     .associateBy { "${it.packageName}|${it.title}" }
 
                 // Map WatchNext items, enriching progressMs/durationMs from PreviewPrograms
@@ -145,10 +144,10 @@ class TvContentRepository(private val context: Context) {
                         } else base
                     }
 
-                // Add any PreviewProgram items not already covered by a WatchNext entry
-                val seenKeys = fromWatchNext.map { "${it.packageName}|${it.title}" }.toSet()
-                val previewOnly = fromPreview
-                    .filter { "${it.packageName}|${it.title}" !in seenKeys }
+                // Add ALL PreviewProgram items (including 0-progress) not already covered
+                // by a WatchNext entry — this catches apps that only publish to PreviewPrograms.
+                val seenKeys    = fromWatchNext.map { "${it.packageName}|${it.title}" }.toSet()
+                val previewOnly = allPreview.filter { "${it.packageName}|${it.title}" !in seenKeys }
 
                 Log.e(TAG, "CW: ${fromWatchNext.size} from WatchNext (enriched), " +
                     "${previewOnly.size} added from PreviewPrograms only")

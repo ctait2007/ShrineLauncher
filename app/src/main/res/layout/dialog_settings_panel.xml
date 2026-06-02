@@ -20,7 +20,7 @@
             android:layout_height="0dp"
             android:layout_weight="0"
             android:src="@drawable/shrine_text_logo"
-            android:scaleType="centerCrop"
+            android:scaleType="centerInside"
             android:adjustViewBounds="false"
             android:padding="8dp"
             android:contentDescription="Shrine Launcher" />

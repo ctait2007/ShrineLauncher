@@ -94,12 +94,12 @@ class SettingsPanelDialog(
         tvPageTitle.textSize = 13f
         tvPageTitle.typeface = Typeface.DEFAULT_BOLD
 
-        // Set logo to 16:9 height based on actual panel width
+        // Compact header: logo height ≈ 55% of what 16:9 would give, centred inside
         ivLogo.post {
             val w = ivLogo.width
             if (w > 0) {
                 val lp = ivLogo.layoutParams
-                lp.height = (w * 9f / 16f).toInt()
+                lp.height = (w * 9f / 16f * 0.55f).toInt()
                 ivLogo.layoutParams = lp
             }
         }
@@ -599,7 +599,8 @@ class SettingsPanelDialog(
         // Manage apps (custom + favourites only)
         if (row.categoryType !in listOf(CategoryType.ALL_APPS, CategoryType.INSTALL)) {
             addEntry("Manage Apps", R.drawable.ic_settings_rows, showArrow = true) {
-                manageAllowed = row.apps.toMutableList()  // fresh copy on entry
+                manageOrder   = row.apps.toMutableList()
+                manageAllowed = row.apps.toMutableList()
                 navigateTo("Manage Apps") { buildManageApps(row) }
             }
         }
@@ -662,7 +663,10 @@ class SettingsPanelDialog(
     // PAGE: MANAGE APPS (panel with toggles)
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // Live state for Manage Apps — persisted to prefs only on page exit
+    // Live state for Manage Apps
+    // manageOrder  = visual order of the Shown section (up/down moves change this)
+    // manageAllowed = which packages are currently enabled (pill toggle changes this)
+    private var manageOrder   = mutableListOf<String>()
     private var manageAllowed = mutableListOf<String>()
 
     private fun buildManageApps(
@@ -674,22 +678,24 @@ class SettingsPanelDialog(
             val allApps = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             if (!isActive) return@launch
 
-            if (manageAllowed.isEmpty() && row.apps.isNotEmpty()) {
+            // Initialise from row.apps on first entry; subsequent rebuilds keep session state
+            if (manageOrder.isEmpty() && row.apps.isNotEmpty()) {
+                manageOrder   = row.apps.toMutableList()
                 manageAllowed = row.apps.toMutableList()
             }
 
-            // Shown section: apps in their original row.apps order (so toggled-off apps
-            // stay at their original position). Newly added (not in row.apps) go at end.
-            val pendingOff = row.apps.filter { it !in manageAllowed }.toSet()
-            val originalShown = row.apps.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
-            val newlyAdded    = manageAllowed.filter { it !in row.apps }
+            // Shown section rendered in manageOrder (visual order, changed by up/down).
+            // manageAllowed tracks enabled/disabled state independently.
+            val pendingOff  = manageOrder.filter { it !in manageAllowed }.toSet()
+            val shownApps   = manageOrder.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            val newlyAdded  = manageAllowed.filter { it !in manageOrder }
                 .mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
-            val hiddenApps = allApps
-                .filter { it.packageName !in row.apps && it.packageName !in manageAllowed }
+            val hiddenApps  = allApps
+                .filter { it.packageName !in manageOrder && it.packageName !in manageAllowed }
                 .sortedBy { it.label.lowercase() }
 
             addSectionHeader("SHOWN")
-            renderManageSection(originalShown + newlyAdded, pendingOff, row, true)
+            renderManageSection(shownApps + newlyAdded, pendingOff, row, true)
 
             addSectionHeader("HIDDEN")
             renderManageSection(hiddenApps, emptySet(), row, false)
@@ -769,9 +775,10 @@ class SettingsPanelDialog(
             }
             pill.setOnClickListener {
                 isOn = !isOn
+                // Pill only changes enabled state; position in manageOrder is preserved
                 if (isOn) manageAllowed.add(app.packageName)
                 else      manageAllowed.remove(app.packageName)
-                prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                prefRepo.updateRow(row.copy(apps = manageOrder.filter { it in manageAllowed }.toMutableList()))
                 rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "pill")
             }
 
@@ -781,18 +788,18 @@ class SettingsPanelDialog(
                 btnDown.visibility = View.VISIBLE
 
                 btnUp.setOnClickListener {
-                    val idx = manageAllowed.indexOf(app.packageName)
+                    val idx = manageOrder.indexOf(app.packageName)
                     if (idx > 0) {
-                        manageAllowed.removeAt(idx); manageAllowed.add(idx - 1, app.packageName)
-                        prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                        manageOrder.removeAt(idx); manageOrder.add(idx - 1, app.packageName)
+                        prefRepo.updateRow(row.copy(apps = manageOrder.filter { it in manageAllowed }.toMutableList()))
                         rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "up")
                     }
                 }
                 btnDown.setOnClickListener {
-                    val idx = manageAllowed.indexOf(app.packageName)
-                    if (idx in 0 until manageAllowed.size - 1) {
-                        manageAllowed.removeAt(idx); manageAllowed.add(idx + 1, app.packageName)
-                        prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                    val idx = manageOrder.indexOf(app.packageName)
+                    if (idx in 0 until manageOrder.size - 1) {
+                        manageOrder.removeAt(idx); manageOrder.add(idx + 1, app.packageName)
+                        prefRepo.updateRow(row.copy(apps = manageOrder.filter { it in manageAllowed }.toMutableList()))
                         rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "down")
                     }
                 }
@@ -1263,13 +1270,16 @@ class SettingsPanelDialog(
             })
         }
 
-        if (hasSingle || hasSlideshow) {
-            addEntry("Remove wallpaper", labelColor = 0xFFCF6679.toInt()) {
-                prefRepo.savePrefs(prefRepo.loadPrefs().copy(
-                    wallpaperUri = null, wallpaperUris = emptyList(), wallpaperSlideshow = false
-                )); notifyChanged()
-                rawShowPage(currentTitle); buildWallpaperPage()
-            }
+        val hasWallpaper = hasSingle || hasSlideshow
+        addEntry(
+            "Remove wallpaper",
+            labelColor = if (hasWallpaper) 0xFFCF6679.toInt() else 0xFF444444.toInt()
+        ) {
+            if (!hasWallpaper) return@addEntry
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(
+                wallpaperUri = null, wallpaperUris = emptyList(), wallpaperSlideshow = false
+            )); notifyChanged()
+            rawShowPage(currentTitle); buildWallpaperPage()
         }
 
         val intervals = listOf(30 to "30s", 60 to "1 min", 120 to "2 min",
@@ -1482,6 +1492,7 @@ class SettingsPanelDialog(
                 .setMessage("All settings and row config will be reset. Cannot be undone.")
                 .setPositiveButton("Reset") { _, _ ->
                     prefRepo.savePrefs(com.shrine.launcher.data.model.LauncherPrefs())
+                    notifyChanged()
                     Toast.makeText(context, "Reset complete", Toast.LENGTH_SHORT).show()
                     dismiss()
                 }
