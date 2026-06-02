@@ -52,7 +52,8 @@ class SettingsPanelDialog(
     context: Context,
     private val wallpaperUri: String? = null,
     private val onDismissed: (() -> Unit)? = null,
-    private val initialApp: AppInfo? = null          // if set, open directly to context menu
+    private val initialApp: AppInfo? = null,         // if set, open directly to context menu
+    private val onSettingsChanged: (() -> Unit)? = null  // called whenever a setting is saved
 ) : Dialog(context) {
 
     // ── Repos ──────────────────────────────────────────────────────────────────
@@ -90,14 +91,22 @@ class SettingsPanelDialog(
         tvPageTitle = findViewById(R.id.tvPanelDate)   // reuse id; now a red title
         body        = findViewById(R.id.panelBody)
 
-        tvPageTitle.setTextColor(0xFFE53935.toInt())
         tvPageTitle.textSize = 13f
         tvPageTitle.typeface = Typeface.DEFAULT_BOLD
+
+        // Set logo to 16:9 height based on actual panel width
+        ivLogo.post {
+            val w = ivLogo.width
+            if (w > 0) {
+                val lp = ivLogo.layoutParams
+                lp.height = (w * 9f / 16f).toInt()
+                ivLogo.layoutParams = lp
+            }
+        }
 
         setOnDismissListener { onDismissed?.invoke() }
 
         if (initialApp != null) {
-            // Open directly to context menu (from home screen long-press)
             showPage(initialApp.label, false) { buildContextMenu(initialApp) }
         } else {
             showPage(null, false) { buildMainMenu() }
@@ -134,6 +143,7 @@ class SettingsPanelDialog(
         currentBuilder = builder
         rawShowPage(title)
         builder()
+        focusFirstItem()
     }
 
     private fun showPage(title: String?, push: Boolean = true, builder: () -> Unit) {
@@ -144,19 +154,36 @@ class SettingsPanelDialog(
         currentBuilder = builder
         rawShowPage(title)
         builder()
+        focusFirstItem()
     }
+
+    /** Call whenever a setting value is persisted. */
+    private fun notifyChanged() { onSettingsChanged?.invoke() }
 
     private fun rawShowPage(title: String?) {
         pageJob?.cancel()
         pageJob = null
         body.removeAllViews()
+        // Logo always visible; subheading shown only on sub-pages
+        ivLogo.visibility = View.VISIBLE
         if (title == null) {
-            ivLogo.visibility      = View.VISIBLE
             tvPageTitle.visibility = View.GONE
         } else {
-            ivLogo.visibility      = View.GONE
             tvPageTitle.visibility = View.VISIBLE
             tvPageTitle.text       = title
+        }
+    }
+
+    /** Focus first focusable non-EditText child of body. */
+    private fun focusFirstItem() {
+        body.post {
+            for (i in 0 until body.childCount) {
+                val child = body.getChildAt(i)
+                if (child.isFocusable && child !is EditText && child.visibility == View.VISIBLE) {
+                    child.requestFocus()
+                    return@post
+                }
+            }
         }
     }
 
@@ -211,7 +238,7 @@ class SettingsPanelDialog(
         if (iconRes != 0) {
             try {
                 ivIcon.setImageResource(iconRes)
-                ivIcon.setColorFilter(0xFFE53935.toInt())   // #15 — red icon tint
+                ivIcon.setColorFilter(0xFFC06060.toInt())   // softer muted red tint
                 ivIcon.visibility = View.VISIBLE
             } catch (e: Exception) { ivIcon.visibility = View.GONE }
         } else {
@@ -421,6 +448,7 @@ class SettingsPanelDialog(
                 }
                 body.addView(v)
             }
+            focusFirstItem()
         }
     }
 
@@ -495,16 +523,52 @@ class SettingsPanelDialog(
         var isPinned = row.isPinnedToTop
         addToggle("Pinned to top", isPinned) { isPinned = it }
 
-        // Size picker (expands inline)
-        addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", R.drawable.ic_grid,
-            showArrow = true) {
-            navigateTo("Icon Size") { buildSizePicker(row.iconSizeLabelOverride) { label ->
-                row = row.copy(iconSizeLabelOverride = label)
-                prefRepo.updateRow(row)
-                // Return to editor with updated row
-                navStack.removeLast()
-                navigateTo(row.title) { buildCategoryEditor(row) }
-            } }
+        // Size picker: inline dropdown that toggles open/closed
+        val sizeLabels = arrayOf<String?>(null, "S", "M", "L", "XL")
+        val sizeNames  = arrayOf("Global", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
+        var sizeExpanded = false
+        val sizeOptionViews = mutableListOf<View>()
+
+        val sizeHeaderEntry = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}",
+            R.drawable.ic_grid, showArrow = false) { }
+
+        // Pre-create size option rows (hidden initially)
+        sizeLabels.forEachIndexed { i, sz ->
+            val optView = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+            val tvOpt   = optView.findViewById<TextView>(R.id.tvEntryLabel)
+            optView.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
+            optView.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
+            tvOpt.text = "    ${sizeNames[i]}"
+            if (sz == row.iconSizeLabelOverride) {
+                tvOpt.setTextColor(0xFFFFFFFF.toInt())
+                tvOpt.typeface = Typeface.DEFAULT_BOLD
+            } else {
+                tvOpt.setTextColor(0xFFB0B0B0.toInt())
+            }
+            optView.visibility = View.GONE
+            applyFocus(optView, tvOpt)
+            optView.setOnClickListener {
+                row = row.copy(iconSizeLabelOverride = sz)
+                prefRepo.updateRow(row); notifyChanged()
+                // Collapse and update header label
+                sizeExpanded = false
+                sizeOptionViews.forEach { it.visibility = View.GONE }
+                sizeHeaderEntry.findViewById<TextView>(R.id.tvEntryLabel)?.text =
+                    "Icon size: ${sizeDisplayName(sz)}"
+                sizeOptionViews.forEach { v ->
+                    val tv2 = v.findViewById<TextView>(R.id.tvEntryLabel)
+                    val isNowSel = sizeLabels[sizeOptionViews.indexOf(v)] == sz
+                    tv2.setTextColor(if (isNowSel) 0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt())
+                    tv2.typeface = if (isNowSel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                }
+            }
+            sizeOptionViews.add(optView)
+            body.addView(optView)
+        }
+
+        sizeHeaderEntry.setOnClickListener {
+            sizeExpanded = !sizeExpanded
+            sizeOptionViews.forEach { it.visibility = if (sizeExpanded) View.VISIBLE else View.GONE }
         }
 
         // Manage apps (custom + favourites only)
@@ -576,40 +640,90 @@ class SettingsPanelDialog(
         pageJob = scope.launch {
             val allApps = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             if (!isActive) return@launch
+            // Shown apps first (in their saved order), then hidden apps alphabetically
             val allowed = row.apps.toMutableList()
+            val shownApps  = allowed.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            val hiddenApps = allApps.filter { it.packageName !in allowed }
+                .sortedBy { it.label.lowercase() }
 
-            addSectionHeader("TAP TO TOGGLE · D-PAD TO REORDER")
+            addSectionHeader("SHOWN — hold + D-pad ▲▼ to reorder")
+            renderManageSection(shownApps, allowed, row, isShownSection = true)
 
-            allApps.forEach { app ->
-                val isIn = app.packageName in allowed
-                val v    = LayoutInflater.from(context).inflate(R.layout.item_all_apps_entry, body, false)
-                val iv   = v.findViewById<ImageView>(R.id.ivAppIcon)
-                val tv   = v.findViewById<TextView>(R.id.tvAppLabel)
-                app.icon?.let { iv.setImageDrawable(it) }
-                tv.text = app.label
-                tv.alpha = if (isIn) 1f else 0.4f
+            addSectionHeader("HIDDEN")
+            renderManageSection(hiddenApps, allowed, row, isShownSection = false)
 
-                // Red dot indicator when included
-                val dot = TextView(context)
-                dot.text = "●"
-                dot.setTextColor(0xFFE53935.toInt())
-                dot.textSize = 10f
-                dot.visibility = if (isIn) View.VISIBLE else View.INVISIBLE
-                (v as LinearLayout).addView(dot)
+            focusFirstItem()
+        }
+    }
 
-                applyFocus(v, tv)
-                v.setOnClickListener {
-                    if (app.packageName in allowed) {
-                        allowed.remove(app.packageName)
-                        tv.alpha = 0.4f; dot.visibility = View.INVISIBLE
-                    } else {
-                        allowed.add(app.packageName)
-                        tv.alpha = 1f; dot.visibility = View.VISIBLE
-                    }
-                    prefRepo.updateRow(row.copy(apps = allowed))
-                }
-                body.addView(v)
+    private fun renderManageSection(
+        apps: List<com.shrine.launcher.data.model.AppInfo>,
+        allowed: MutableList<String>,
+        row: LauncherRow,
+        isShownSection: Boolean
+    ) {
+        val inflater = LayoutInflater.from(context)
+        apps.forEach { app ->
+            val v  = inflater.inflate(R.layout.item_all_apps_entry, body, false)
+            val iv = v.findViewById<ImageView>(R.id.ivAppIcon)
+            val tv = v.findViewById<TextView>(R.id.tvAppLabel)
+            app.icon?.let { iv.setImageDrawable(it) }
+            tv.text = app.label
+
+            // ON/OFF switch indicator
+            val pill = TextView(context).apply {
+                text = if (isShownSection) "ON" else "OFF"
+                setTextColor(if (isShownSection) 0xFFE53935.toInt() else 0xFF666666.toInt())
+                textSize = 10f
+                typeface = Typeface.DEFAULT_BOLD
             }
+            (v as LinearLayout).addView(pill)
+
+            applyFocus(v, tv)
+
+            // Click to toggle
+            v.setOnClickListener {
+                if (app.packageName in allowed) {
+                    allowed.remove(app.packageName)
+                } else {
+                    // Add to bottom of shown list
+                    allowed.add(app.packageName)
+                }
+                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
+                // Rebuild the page to reflect new order
+                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
+            }
+
+            // Long-press + d-pad up/down to reorder (only for shown apps)
+            if (isShownSection) {
+                var held = false
+                v.setOnLongClickListener { held = true; true }
+                v.setOnKeyListener { _, keyCode, event ->
+                    if (!held || event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+                    val idx = allowed.indexOf(app.packageName)
+                    when (keyCode) {
+                        KeyEvent.KEYCODE_DPAD_UP -> {
+                            if (idx > 0) {
+                                allowed.removeAt(idx); allowed.add(idx - 1, app.packageName)
+                                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
+                                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
+                            }
+                            true
+                        }
+                        KeyEvent.KEYCODE_DPAD_DOWN -> {
+                            if (idx < allowed.size - 1) {
+                                allowed.removeAt(idx); allowed.add(idx + 1, app.packageName)
+                                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
+                                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
+                            }
+                            true
+                        }
+                        else -> { held = false; false }
+                    }
+                }
+            }
+
+            body.addView(v)
         }
     }
 
@@ -676,6 +790,7 @@ class SettingsPanelDialog(
                     body.addView(v)
                 }
             }
+            focusFirstItem()
         }
     }
 
@@ -713,13 +828,34 @@ class SettingsPanelDialog(
         var isPinned = row.isPinnedToTop
         addToggle("Pinned to top", isPinned) { isPinned = it }
 
-        addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", showArrow = true) {
-            navigateTo("Icon Size") { buildSizePicker(row.iconSizeLabelOverride) { label ->
-                row = row.copy(iconSizeLabelOverride = label)
-                prefRepo.updateRow(row)
-                navStack.removeLast()
-                navigateTo(row.title) { buildChannelEditor(row) }
-            } }
+        // Inline size dropdown (same pattern as category editor)
+        val chSizeLabels = arrayOf<String?>(null, "S", "M", "L", "XL")
+        val chSizeNames  = arrayOf("Global", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
+        var chSizeExpanded = false
+        val chSizeOptionViews = mutableListOf<View>()
+        val chSizeHeader = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", showArrow = false) { }
+        chSizeLabels.forEachIndexed { i, sz ->
+            val ov  = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+            val tvO = ov.findViewById<TextView>(R.id.tvEntryLabel)
+            ov.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
+            ov.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
+            tvO.text = "    ${chSizeNames[i]}"
+            if (sz == row.iconSizeLabelOverride) { tvO.setTextColor(0xFFFFFFFF.toInt()); tvO.typeface = Typeface.DEFAULT_BOLD }
+            else tvO.setTextColor(0xFFB0B0B0.toInt())
+            ov.visibility = View.GONE
+            applyFocus(ov, tvO)
+            ov.setOnClickListener {
+                row = row.copy(iconSizeLabelOverride = sz)
+                prefRepo.updateRow(row); notifyChanged()
+                chSizeExpanded = false
+                chSizeOptionViews.forEach { it.visibility = View.GONE }
+                chSizeHeader.findViewById<TextView>(R.id.tvEntryLabel)?.text = "Icon size: ${sizeDisplayName(sz)}"
+            }
+            chSizeOptionViews.add(ov); body.addView(ov)
+        }
+        chSizeHeader.setOnClickListener {
+            chSizeExpanded = !chSizeExpanded
+            chSizeOptionViews.forEach { it.visibility = if (chSizeExpanded) View.VISIBLE else View.GONE }
         }
 
         // Source filter only for grouped channel rows
@@ -905,25 +1041,27 @@ class SettingsPanelDialog(
         val prefs = prefRepo.loadPrefs()
 
         addToggle("Enable Channels", prefs.channelsEnabled) { checked ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked)); notifyChanged()
         }
 
         addEntry("Set as Default Launcher") {
-            try {
-                context.startActivity(Intent(Intent.ACTION_MAIN).apply {
-                    addCategory(Intent.CATEGORY_HOME)
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-            } catch (e: Exception) {
+            // Try the dedicated Home Settings screen, then manage-defaults, then manual instructions
+            val intents = listOf(
+                Intent(Settings.ACTION_HOME_SETTINGS),
+                Intent(Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS),
+                Intent(android.provider.Settings.ACTION_SETTINGS)
+            )
+            var launched = false
+            for (i in intents) {
                 try {
-                    context.startActivity(Intent(Settings.ACTION_HOME_SETTINGS).apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (e2: Exception) {
-                    Toast.makeText(context,
-                        "Settings → Applications → Default Apps → Home App",
-                        Toast.LENGTH_LONG).show()
-                }
+                    context.startActivity(i.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                    launched = true; break
+                } catch (_: Exception) {}
+            }
+            if (!launched) {
+                Toast.makeText(context,
+                    "Settings → Applications → Default Apps → Home App → Shrine Launcher",
+                    Toast.LENGTH_LONG).show()
             }
         }
 
@@ -976,17 +1114,80 @@ class SettingsPanelDialog(
             navigateTo("Cards") { buildCardAppearance() }
         }
         addEntry("Wallpaper", showArrow = true) {
-            // Wallpaper needs file picker — launch Activity
-            context.startActivity(Intent(context, WallpaperAppearanceActivity::class.java).apply {
-                wallpaperUri?.let { putExtra("wallpaper_uri", it) }
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            navigateTo("Wallpaper") { buildWallpaperPage() }
         }
         addEntry("Status Bar", showArrow = true) {
             navigateTo("Status Bar") { buildStatusBar() }
         }
         addEntry("Idle Mode", showArrow = true) {
             navigateTo("Idle Mode") { buildIdleMode() }
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAGE: WALLPAPER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private fun buildWallpaperPage() {
+        val p = prefRepo.loadPrefs()
+        val hasSingle   = !p.wallpaperUri.isNullOrBlank()
+        val hasSlideshow = p.wallpaperUris.isNotEmpty()
+
+        addToggle("Slideshow mode", p.wallpaperSlideshow) { checked ->
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(wallpaperSlideshow = checked)); notifyChanged()
+        }
+
+        val currentDesc = when {
+            hasSlideshow -> "${p.wallpaperUris.size} images"
+            hasSingle    -> "1 image set"
+            else         -> "None"
+        }
+        addEntry("Select wallpaper(s)  ($currentDesc)") {
+            // Launch WallpaperAppearanceActivity just for the file picker;
+            // it saves directly to prefs and returns
+            context.startActivity(Intent(context, WallpaperAppearanceActivity::class.java).apply {
+                p.wallpaperUri?.let { putExtra("wallpaper_uri", it) }
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }
+
+        if (hasSingle || hasSlideshow) {
+            addEntry("Remove wallpaper", labelColor = 0xFFCF6679.toInt()) {
+                prefRepo.savePrefs(prefRepo.loadPrefs().copy(
+                    wallpaperUri = null, wallpaperUris = emptyList(), wallpaperSlideshow = false
+                )); notifyChanged()
+                rawShowPage(currentTitle); buildWallpaperPage()
+            }
+        }
+
+        val intervals = listOf(30 to "30s", 60 to "1 min", 120 to "2 min",
+            300 to "5 min", 600 to "10 min", 900 to "15 min", 1800 to "30 min")
+        val currInterval = p.wallpaperIntervalSeconds
+        val currLabel = intervals.find { it.first == currInterval }?.second ?: "5 min"
+        var intervalExpanded = false
+        val intervalOptionViews = mutableListOf<View>()
+
+        val intervalHeader = addEntry("Slide interval: $currLabel") { }
+        intervals.forEach { (secs, label) ->
+            val ov = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+            val tvO = ov.findViewById<TextView>(R.id.tvEntryLabel)
+            ov.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
+            ov.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
+            tvO.text = "    $label"
+            if (secs == currInterval) { tvO.setTextColor(0xFFFFFFFF.toInt()); tvO.typeface = Typeface.DEFAULT_BOLD }
+            else tvO.setTextColor(0xFFB0B0B0.toInt())
+            ov.visibility = View.GONE
+            applyFocus(ov, tvO)
+            ov.setOnClickListener {
+                prefRepo.savePrefs(prefRepo.loadPrefs().copy(wallpaperIntervalSeconds = secs)); notifyChanged()
+                intervalExpanded = false; intervalOptionViews.forEach { it.visibility = View.GONE }
+                intervalHeader.findViewById<TextView>(R.id.tvEntryLabel)?.text = "Slide interval: $label"
+            }
+            intervalOptionViews.add(ov); body.addView(ov)
+        }
+        intervalHeader.setOnClickListener {
+            intervalExpanded = !intervalExpanded
+            intervalOptionViews.forEach { it.visibility = if (intervalExpanded) View.VISIBLE else View.GONE }
         }
     }
 
@@ -998,20 +1199,20 @@ class SettingsPanelDialog(
         val p = prefRepo.loadPrefs()
 
         addToggle("Show category title", p.showCategoryTitle) { checked ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(showCategoryTitle = checked))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(showCategoryTitle = checked)); notifyChanged()
         }
         addToggle("Show progress bar", p.progressBarEnabled) { checked ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(progressBarEnabled = checked))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(progressBarEnabled = checked)); notifyChanged()
         }
         addSectionHeader("LAYOUT")
         addSlider("Bottom margin", p.rowsBottomMarginPercent, 0, 100, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowsBottomMarginPercent = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowsBottomMarginPercent = v)); notifyChanged()
         }
         addSlider("Start margin", p.rowStartPaddingDp.coerceIn(0, 100), 0, 100, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowStartPaddingDp = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowStartPaddingDp = v)); notifyChanged()
         }
         addSlider("Row spacing", p.rowSpacingPercent, 0, 100, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowSpacingPercent = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowSpacingPercent = v)); notifyChanged()
         }
     }
 
@@ -1023,21 +1224,21 @@ class SettingsPanelDialog(
         val p = prefRepo.loadPrefs()
 
         addToggle("Show app title", p.showAppTitle) { checked ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(showAppTitle = checked))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(showAppTitle = checked)); notifyChanged()
         }
         addToggle("Banner mode", p.globalCardDisplayMode == CardDisplayMode.BANNER) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(
                 globalCardDisplayMode = if (checked) CardDisplayMode.BANNER else CardDisplayMode.ICON))
         }
         addSlider("Corner roundness", p.cardCornerRadiusPercent, 0, 100, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(cardCornerRadiusPercent = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(cardCornerRadiusPercent = v)); notifyChanged()
         }
 
         addSectionHeader("CARD SIZE")
         buildCardSizeButtons(p.iconSizeLabel)
 
         addSlider("Card spacing", p.itemSpacingPercent, 0, 100, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(itemSpacingPercent = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(itemSpacingPercent = v)); notifyChanged()
         }
     }
 
@@ -1070,7 +1271,7 @@ class SettingsPanelDialog(
                 }
             }
             btn.setOnClickListener {
-                prefRepo.savePrefs(prefRepo.loadPrefs().copy(iconSizeLabel = label))
+                prefRepo.savePrefs(prefRepo.loadPrefs().copy(iconSizeLabel = label)); notifyChanged()
                 rawShowPage(currentTitle); buildCardAppearance()
             }
             btn.setOnFocusChangeListener { v, hasFocus ->
@@ -1094,14 +1295,14 @@ class SettingsPanelDialog(
 
     private fun buildStatusBar() {
         val p = prefRepo.loadPrefs()
-        addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)) }
-        addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)) }
-        addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)) }
+        addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
+        addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
+        addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
         addEntry("Wi-Fi settings") {
             context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
         }
         addSlider("Status bar size", p.statusBarIconSizePercent, 50, 150, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v)); notifyChanged()
         }
     }
 
@@ -1112,11 +1313,11 @@ class SettingsPanelDialog(
     private fun buildIdleMode() {
         val p = prefRepo.loadPrefs()
         addToggle("Enable idle mode", p.idleModeEnabled) { c ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleModeEnabled = c))
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleModeEnabled = c)); notifyChanged()
         }
         addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, { s ->
             if (s < 60) "${s}s" else "${s / 60}m${if (s % 60 > 0) " ${s % 60}s" else ""}"
-        }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)) }
+        }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)); notifyChanged() }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

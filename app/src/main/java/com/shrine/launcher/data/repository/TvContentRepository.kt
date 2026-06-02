@@ -484,24 +484,43 @@ class TvContentRepository(private val context: Context) {
     suspend fun listTvProviderChannels(): List<Triple<Long, String, String>> =
         withContext(Dispatchers.IO) {
             val result = mutableListOf<Triple<Long, String, String>>()
-            try {
-                val cursor = cr.query(
-                    TvContractCompat.Channels.CONTENT_URI,
-                    null, null, null, null
-                ) ?: return@withContext emptyList()
-                cursor.use { c ->
-                    while (c.moveToNext()) {
-                        try {
-                            val ch = androidx.tvprovider.media.tv.PreviewChannel.fromCursor(c)
-                            val pkg  = getPackageForChannel(ch.id)
-                            val name = ch.displayName?.toString() ?: "Unknown"
-                            result.add(Triple(ch.id, name, pkg))
-                        } catch (e: Exception) { }
+            // Try multiple URIs — Fire TV may respond to a different authority
+            val uris = listOf(
+                TvContractCompat.Channels.CONTENT_URI,
+                android.media.tv.TvContract.Channels.CONTENT_URI,
+                android.net.Uri.parse("content://android.media.tv/channel")
+            ).distinctBy { it.toString() }
+            for (uri in uris) {
+                try {
+                    val cursor = cr.query(uri, null, null, null, null) ?: continue
+                    Log.d(TAG, "listTvProviderChannels from $uri: ${cursor.count} rows")
+                    cursor.use { c ->
+                        val idIdx   = c.getColumnIndex("_id")
+                        val nameIdx = c.getColumnIndex(TvContractCompat.Channels.COLUMN_DISPLAY_NAME)
+                        val pkgIdx  = c.getColumnIndex(TvContractCompat.Channels.COLUMN_PACKAGE_NAME)
+                        if (idIdx < 0) return@use
+                        while (c.moveToNext()) {
+                            try {
+                                val id   = c.getLong(idIdx)
+                                val name = if (nameIdx >= 0) c.getString(nameIdx) ?: "Unknown" else "Unknown"
+                                val pkg  = if (pkgIdx  >= 0) c.getString(pkgIdx)  ?: "" else ""
+                                // Only include app channels (have a package name)
+                                if (pkg.isNotBlank()) {
+                                    result.add(Triple(id, name, pkg))
+                                }
+                            } catch (e: Exception) {
+                                Log.w(TAG, "Skipping channel row: ${e.message}")
+                            }
+                        }
                     }
+                    if (result.isNotEmpty()) break
+                } catch (se: SecurityException) {
+                    Log.w(TAG, "listTvProviderChannels SecurityException on $uri: ${se.message}")
+                } catch (e: Exception) {
+                    Log.w(TAG, "listTvProviderChannels error on $uri: ${e.message}")
                 }
-            } catch (e: Exception) {
-                Log.w(TAG, "listTvProviderChannels: ${e.message}")
             }
+            Log.d(TAG, "listTvProviderChannels: returning ${result.size} channels")
             result
         }
 

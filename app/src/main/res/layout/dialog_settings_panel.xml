@@ -4,34 +4,35 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- Header: opaque -->
+    <!-- Header: opaque, 16:9 logo + subheading -->
     <LinearLayout
         android:id="@+id/panelHeader"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:background="#FF1A1A1A"
-        android:paddingStart="24dp"
-        android:paddingEnd="24dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="16dp">
+        android:background="#FF1A1A1A">
 
+        <!-- 16:9 logo banner fills full width -->
         <ImageView
             android:id="@+id/ivPanelLogo"
-            android:layout_width="160dp"
-            android:layout_height="56dp"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="0"
             android:src="@drawable/shrine_text_logo"
-            android:scaleType="fitStart"
-            android:adjustViewBounds="true"
+            android:scaleType="centerCrop"
+            android:adjustViewBounds="false"
             android:contentDescription="Shrine Launcher" />
 
-        <!-- Shown as red section title on sub-pages; hidden at root -->
+        <!-- Red subheading shown on sub-pages -->
         <TextView
             android:id="@+id/tvPanelDate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="#FFE53935"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:textColor="#FFC06060"
             android:textSize="13sp"
             android:textStyle="bold"
             android:visibility="gone" />
@@ -48,7 +49,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#CC1A1A1A"
+        android:background="#F21A1A1A"
         android:scrollbars="none">
 
         <LinearLayout

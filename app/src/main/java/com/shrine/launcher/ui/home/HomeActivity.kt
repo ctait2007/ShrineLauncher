@@ -378,10 +378,11 @@ class HomeActivity : AppCompatActivity() {
         val wallpaperUri = vm.prefs.value?.wallpaperUri
             ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
         SettingsPanelDialog(
-            context      = this,
-            wallpaperUri = wallpaperUri,
-            onDismissed  = { binding.btnSettings.post { binding.btnSettings.requestFocus() } },
-            initialApp   = initialApp
+            context           = this,
+            wallpaperUri      = wallpaperUri,
+            onDismissed       = { vm.loadAll(); binding.btnSettings.post { binding.btnSettings.requestFocus() } },
+            initialApp        = initialApp,
+            onSettingsChanged = { vm.loadAll() }
         ).show()
     }
 
