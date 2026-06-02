@@ -121,8 +121,8 @@ class SettingsPanelDialog(
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.END or Gravity.CENTER_VERTICAL)
             val dm = context.resources.displayMetrics
-            val w  = (dm.widthPixels  * 0.26f).toInt()
-            val h  = (dm.heightPixels * 0.88f).toInt()
+            val w  = (dm.widthPixels  * 0.30f).toInt()
+            val h  = (dm.heightPixels * 0.94f).toInt()
             setLayout(w, h)
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
             // Slight margin from the right edge
@@ -313,6 +313,7 @@ class SettingsPanelDialog(
         value: Int,
         min: Int,
         max: Int,
+        step: Int = 1,
         displayFn: (Int) -> String = { "$it%" },
         onChange: (Int) -> Unit
     ): View {
@@ -361,8 +362,8 @@ class SettingsPanelDialog(
 
         // Visual progress bar
         val seek = SeekBar(context)
-        seek.max = max - min
-        seek.progress = current - min
+        seek.max = (max - min) / step
+        seek.progress = (current - min) / step
         seek.progressTintList = android.content.res.ColorStateList.valueOf(0xFFE53935.toInt())
         seek.thumbTintList = android.content.res.ColorStateList.valueOf(0xFFE53935.toInt())
         seek.isEnabled = false  // visual only; d-pad controls it
@@ -380,15 +381,17 @@ class SettingsPanelDialog(
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_LEFT -> {
                     if (current > min) {
-                        current--; tvVal.text = displayFn(current)
-                        seek.progress = current - min; onChange(current)
+                        current = (current - step).coerceAtLeast(min)
+                        tvVal.text = displayFn(current)
+                        seek.progress = (current - min) / step; onChange(current)
                     }
                     true
                 }
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
                     if (current < max) {
-                        current++; tvVal.text = displayFn(current)
-                        seek.progress = current - min; onChange(current)
+                        current = (current + step).coerceAtMost(max)
+                        tvVal.text = displayFn(current)
+                        seek.progress = (current - min) / step; onChange(current)
                     }
                     true
                 }
@@ -428,7 +431,6 @@ class SettingsPanelDialog(
         addEntry("Edit Channels", R.drawable.ic_channel) {
             navigateTo("Edit Channels") { buildEditChannels() }
         }
-        addSeparator()
         addEntry("Shrine Settings", R.drawable.ic_settings, showArrow = true) {
             navigateTo("Shrine Settings") { buildShrineSettings() }
         }
@@ -701,20 +703,47 @@ class SettingsPanelDialog(
         val inflater = LayoutInflater.from(context)
         apps.forEachIndexed { listIdx, app ->
             val isPendingOff = app.packageName in pendingOff
-            val isOn = isShownSection && !isPendingOff
+            var isOn = isShownSection && !isPendingOff
 
-            val v    = inflater.inflate(R.layout.item_manage_app_entry, body, false)
-            val iv   = v.findViewById<ImageView>(R.id.ivManageIcon)
-            val tv   = v.findViewById<TextView>(R.id.tvManageLabel)
-            val pill = v.findViewById<TextView>(R.id.tvManagePill)
+            val v       = inflater.inflate(R.layout.item_manage_app_entry, body, false)
+            val iv      = v.findViewById<ImageView>(R.id.ivManageIcon)
+            val tv      = v.findViewById<TextView>(R.id.tvManageLabel)
+            val pill    = v.findViewById<View>(R.id.tvManagePill)
             val btnUp   = v.findViewById<TextView>(R.id.btnMoveUp)
             val btnDown = v.findViewById<TextView>(R.id.btnMoveDown)
 
             app.icon?.let { iv.setImageDrawable(it) }
             tv.text = app.label
 
-            pill.text = if (isOn) "ON" else "OFF"
-            pill.setTextColor(if (isOn) 0xFFE53935.toInt() else 0xFF666666.toInt())
+            fun applyPill(on: Boolean) {
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 100f * dp
+                    setColor(if (on) 0xFFE53935.toInt() else 0xFF444444.toInt())
+                }
+                pill.background = bg
+            }
+            applyPill(isOn)
+
+            // Pill: focusable toggle
+            pill.setOnClickListener {
+                isOn = !isOn
+                applyPill(isOn)
+                if (isOn) manageAllowed.add(app.packageName)
+                else manageAllowed.remove(app.packageName)
+                prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                rawShowPage(currentTitle); buildManageApps(row)
+            }
+            pill.setOnFocusChangeListener { view, hasFocus ->
+                val bg = GradientDrawable().apply {
+                    shape = GradientDrawable.RECTANGLE
+                    cornerRadius = 100f * dp
+                    setColor(if (isOn) 0xFFE53935.toInt() else 0xFF444444.toInt())
+                    setStroke(if (hasFocus) (2 * dp).toInt() else 0,
+                        if (hasFocus) 0xFFFFFFFF.toInt() else 0)
+                }
+                view.background = bg
+            }
 
             // Reorder buttons visible only for shown-and-ON items
             if (isShownSection && !isPendingOff) {
@@ -726,7 +755,7 @@ class SettingsPanelDialog(
                     if (idx > 0) {
                         manageAllowed.removeAt(idx); manageAllowed.add(idx - 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
+                        rawShowPage(currentTitle); buildManageApps(row)
                     }
                 }
                 btnDown.setOnClickListener {
@@ -734,7 +763,7 @@ class SettingsPanelDialog(
                     if (idx in 0 until manageAllowed.size - 1) {
                         manageAllowed.removeAt(idx); manageAllowed.add(idx + 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
+                        rawShowPage(currentTitle); buildManageApps(row)
                     }
                 }
                 applyButtonFocus(btnUp)
@@ -742,26 +771,6 @@ class SettingsPanelDialog(
             } else {
                 btnUp.visibility   = View.GONE
                 btnDown.visibility = View.GONE
-            }
-
-            applyFocus(v, tv)
-
-            // Row click: toggle shown/hidden
-            v.setOnClickListener {
-                if (isShownSection && !isPendingOff) {
-                    // Toggle off: remove from manageAllowed but keep page as-is (stays in shown)
-                    manageAllowed.remove(app.packageName)
-                } else if (isPendingOff) {
-                    // Re-enable: add back to bottom of shown
-                    manageAllowed.add(app.packageName)
-                } else {
-                    // Was fully hidden: add to shown
-                    manageAllowed.add(app.packageName)
-                }
-                // Save immediately but don't do full page rebuild — just update pill
-                prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                // Rebuild to reflect new order
-                rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
             }
 
             body.addView(v)
@@ -782,6 +791,7 @@ class SettingsPanelDialog(
         pageJob = scope.launch {
             val tvChannels = withContext(Dispatchers.IO) { tvRepo.listTvProviderChannels() }
             val rows       = prefRepo.loadRows()
+            val allApps    = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             if (!isActive) return@launch
 
             // Grouped channel rows (Continue Watching, Watch Next)
@@ -799,7 +809,7 @@ class SettingsPanelDialog(
                     body.addView(v)
                 }
 
-            // Individual TvProvider channels grouped by app
+            // App Channels: one entry per app; clicking drills into that app's channels
             addSectionHeader("APP CHANNELS")
             if (tvChannels.isEmpty()) {
                 val tv = TextView(context)
@@ -809,45 +819,61 @@ class SettingsPanelDialog(
                 tv.setPadding((20 * dp).toInt(), (8 * dp).toInt(), 0, 0)
                 body.addView(tv)
             } else {
-                val byApp = tvChannels.groupBy { it.third }  // grouped by packageName
+                val byApp = tvChannels.groupBy { it.third }
                 byApp.forEach { (pkg, channels) ->
-                    // App name header
-                    val appLabel = try {
+                    val appInfo  = allApps.find { it.packageName == pkg }
+                    val appLabel = appInfo?.label ?: try {
                         context.packageManager.getApplicationLabel(
                             context.packageManager.getApplicationInfo(pkg, 0)).toString()
                     } catch (e: Exception) { pkg.substringAfterLast('.') }
-                    addSectionHeader("  $appLabel")
 
-                    channels.forEach { (channelId, channelName, _) ->
-                        val existingRow = rows.find {
-                            it.channelType == ChannelType.TV_PROVIDER && it.tvProviderChannelId == channelId
-                        }
-                        val v       = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
-                        val tvLabel = v.findViewById<TextView>(R.id.tvEntryLabel)
-                        v.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
-                        v.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
-                        tvLabel.text = "    $channelName"
-                        if (existingRow == null || !existingRow.isVisible) tvLabel.alpha = 0.5f
-                        applyFocus(v, tvLabel)
-                        v.setOnClickListener {
-                            val row = existingRow ?: run {
-                                val nr = LauncherRow(
-                                    id = "row_tvprovider_$channelId",
-                                    title = channelName,
-                                    kind = RowKind.CHANNEL,
-                                    channelType = ChannelType.TV_PROVIDER,
-                                    tvProviderChannelId = channelId,
-                                    isVisible = false
-                                )
-                                prefRepo.addRow(nr); nr
-                            }
-                            navigateTo(channelName) { buildChannelEditor(row) }
-                        }
-                        body.addView(v)
+                    val v       = LayoutInflater.from(context).inflate(R.layout.item_all_apps_entry, body, false)
+                    val ivIcon  = v.findViewById<ImageView>(R.id.ivAppIcon)
+                    val tvLabel = v.findViewById<TextView>(R.id.tvAppLabel)
+                    appInfo?.icon?.let { ivIcon.setImageDrawable(it) }
+                    tvLabel.text = appLabel
+
+                    applyFocus(v, tvLabel)
+                    v.setOnClickListener {
+                        navigateTo(appLabel) { buildAppChannelList(channels, rows) }
                     }
+                    body.addView(v)
                 }
             }
             focusFirstItem()
+        }
+    }
+
+    private fun buildAppChannelList(
+        channels: List<Triple<Long, String, String>>,
+        rows: List<LauncherRow>
+    ) {
+        channels.forEach { (channelId, channelName, _) ->
+            val existingRow = rows.find {
+                it.channelType == ChannelType.TV_PROVIDER && it.tvProviderChannelId == channelId
+            }
+            val v       = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+            val tvLabel = v.findViewById<TextView>(R.id.tvEntryLabel)
+            v.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
+            v.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
+            tvLabel.text = channelName
+            if (existingRow == null || !existingRow.isVisible) tvLabel.alpha = 0.5f
+            applyFocus(v, tvLabel)
+            v.setOnClickListener {
+                val row = existingRow ?: run {
+                    val nr = LauncherRow(
+                        id = "row_tvprovider_$channelId",
+                        title = channelName,
+                        kind = RowKind.CHANNEL,
+                        channelType = ChannelType.TV_PROVIDER,
+                        tvProviderChannelId = channelId,
+                        isVisible = false
+                    )
+                    prefRepo.addRow(nr); nr
+                }
+                navigateTo(channelName) { buildChannelEditor(row) }
+            }
+            body.addView(v)
         }
     }
 
@@ -927,7 +953,7 @@ class SettingsPanelDialog(
         if (dismissed.isNotEmpty()) {
             addSectionHeader("HIDDEN ITEMS — tap to restore")
             dismissed.forEach { contentId ->
-                val v = addEntry(contentId, labelColor = 0xFF888888.toInt()) {
+                addEntry(contentId, labelColor = 0xFF888888.toInt()) {
                     prefRepo.restoreDismissedForChannel(row.id, contentId)
                     // Rebuild this page
                     rawShowPage(row.title); buildChannelEditor(row)
@@ -1261,13 +1287,13 @@ class SettingsPanelDialog(
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(progressBarEnabled = checked)); notifyChanged()
         }
         addSectionHeader("LAYOUT")
-        addSlider("Bottom margin", p.rowsBottomMarginPercent, 0, 100, { "$it%" }) { v ->
+        addSlider("Bottom margin", p.rowsBottomMarginPercent, 0, 100, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowsBottomMarginPercent = v)); notifyChanged()
         }
-        addSlider("Start margin", p.rowStartPaddingDp.coerceIn(0, 100), 0, 100, { "$it%" }) { v ->
+        addSlider("Start margin", p.rowStartPaddingDp.coerceIn(0, 100), 0, 100, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowStartPaddingDp = v)); notifyChanged()
         }
-        addSlider("Row spacing", p.rowSpacingPercent, 0, 100, { "$it%" }) { v ->
+        addSlider("Row spacing", p.rowSpacingPercent, 0, 100, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(rowSpacingPercent = v)); notifyChanged()
         }
     }
@@ -1286,14 +1312,14 @@ class SettingsPanelDialog(
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(
                 globalCardDisplayMode = if (checked) CardDisplayMode.BANNER else CardDisplayMode.ICON))
         }
-        addSlider("Corner roundness", p.cardCornerRadiusPercent, 0, 100, { "$it%" }) { v ->
+        addSlider("Corner roundness", p.cardCornerRadiusPercent, 0, 100, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(cardCornerRadiusPercent = v)); notifyChanged()
         }
 
         addSectionHeader("CARD SIZE")
         buildCardSizeButtons(p.iconSizeLabel)
 
-        addSlider("Card spacing", p.itemSpacingPercent, 0, 100, { "$it%" }) { v ->
+        addSlider("Card spacing", p.itemSpacingPercent, 0, 100, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(itemSpacingPercent = v)); notifyChanged()
         }
     }
@@ -1351,14 +1377,14 @@ class SettingsPanelDialog(
 
     private fun buildStatusBar() {
         val p = prefRepo.loadPrefs()
-        addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
-        addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
-        addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
         addToggle("Show Wi-Fi button", p.showWifiButton) { c ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(showWifiButton = c)); notifyChanged()
         }
+        addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
+        addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
+        addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
         // Status bar size: deferred — notifyChanged() fires on back press, not per-tick
-        addSlider("Status bar size", p.statusBarIconSizePercent, 50, 150, { "$it%" }) { v ->
+        addSlider("Status bar size", p.statusBarIconSizePercent, 50, 150, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v))
             // no notifyChanged() here — applied on section exit
         }
@@ -1373,7 +1399,7 @@ class SettingsPanelDialog(
         addToggle("Enable idle mode", p.idleModeEnabled) { c ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleModeEnabled = c)); notifyChanged()
         }
-        addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, { s ->
+        addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, step = 30, displayFn = { s ->
             if (s < 60) "${s}s" else "${s / 60}m${if (s % 60 > 0) " ${s % 60}s" else ""}"
         }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)) }
     }

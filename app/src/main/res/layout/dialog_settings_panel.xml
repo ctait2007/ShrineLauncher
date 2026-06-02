@@ -22,6 +22,7 @@
             android:src="@drawable/shrine_text_logo"
             android:scaleType="centerCrop"
             android:adjustViewBounds="false"
+            android:padding="2dp"
             android:contentDescription="Shrine Launcher" />
 
         <!-- Red subheading shown on sub-pages -->

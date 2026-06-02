@@ -6,8 +6,8 @@
     android:gravity="center_vertical"
     android:paddingStart="16dp"
     android:paddingEnd="8dp"
-    android:focusable="true"
-    android:clickable="true"
+    android:focusable="false"
+    android:clickable="false"
     android:background="@android:color/transparent">
 
     <ImageView
@@ -55,14 +55,13 @@
         android:background="@android:color/transparent"
         android:visibility="gone" />
 
-    <!-- ON/OFF pill -->
-    <TextView
+    <!-- ON/OFF pill slider -->
+    <View
         android:id="@+id/tvManagePill"
-        android:layout_width="32dp"
-        android:layout_height="wrap_content"
-        android:layout_marginStart="4dp"
-        android:textSize="10sp"
-        android:gravity="center"
-        android:textStyle="bold" />
+        android:layout_width="40dp"
+        android:layout_height="22dp"
+        android:layout_marginStart="6dp"
+        android:focusable="true"
+        android:clickable="true" />
 
 </LinearLayout>

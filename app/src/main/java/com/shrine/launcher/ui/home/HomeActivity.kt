@@ -42,6 +42,8 @@ class HomeActivity : AppCompatActivity() {
     private val idleHandler = Handler(Looper.getMainLooper())
     private var isIdle = false
     private val idleRunnable = Runnable { enterIdle() }
+    private var activePanel: SettingsPanelDialog? = null
+    private var preIdleFocusedView: android.view.View? = null
 
     private val tvObserver = TvDatabaseObserver { vm.loadAll() }
 
@@ -307,6 +309,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun enterIdle() {
+        preIdleFocusedView = currentFocus
+        activePanel?.dismiss()
+        activePanel = null
         isIdle = true
         binding.topBar.visibility    = View.INVISIBLE
         binding.mainScroll.visibility = View.INVISIBLE
@@ -316,6 +321,13 @@ class HomeActivity : AppCompatActivity() {
         isIdle = false
         binding.topBar.visibility    = View.VISIBLE
         binding.mainScroll.visibility = View.VISIBLE
+        val focusTarget = preIdleFocusedView
+        preIdleFocusedView = null
+        if (focusTarget != null && focusTarget.isAttachedToWindow) {
+            focusTarget.requestFocus()
+        } else {
+            binding.btnSettings.requestFocus()
+        }
         val prefs = vm.prefs.value
         if (prefs?.idleModeEnabled == true) {
             idleHandler.removeCallbacks(idleRunnable)
@@ -399,13 +411,15 @@ class HomeActivity : AppCompatActivity() {
     private fun openPanel(initialApp: AppInfo? = null) {
         val wallpaperUri = vm.prefs.value?.wallpaperUri
             ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
-        SettingsPanelDialog(
+        val dialog = SettingsPanelDialog(
             context           = this,
             wallpaperUri      = wallpaperUri,
-            onDismissed       = { vm.loadAll(); binding.btnSettings.post { binding.btnSettings.requestFocus() } },
+            onDismissed       = { activePanel = null; vm.loadAll(); binding.btnSettings.post { binding.btnSettings.requestFocus() } },
             initialApp        = initialApp,
             onSettingsChanged = { vm.loadAll() }
-        ).show()
+        )
+        activePanel = dialog
+        dialog.show()
     }
 
     private fun showAppContextMenu(app: AppInfo) {
