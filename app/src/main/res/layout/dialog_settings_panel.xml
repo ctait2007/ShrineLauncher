@@ -40,11 +40,6 @@
             android:visibility="gone" />
     </LinearLayout>
 
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="1dp"
-        android:background="#33FFFFFF" />
-
     <!-- Body: translucent -->
     <ScrollView
         android:id="@+id/panelScroll"

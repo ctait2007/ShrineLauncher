@@ -45,15 +45,10 @@ class HomeActivity : AppCompatActivity() {
     private var activePanel: SettingsPanelDialog? = null
     private var preIdleFocusedView: android.view.View? = null
 
-    // Tracks the last card/item inside rvRows that held focus, so the panel can restore to it
+    // Last focused card inside rvRows — captured in dispatchKeyEvent before any focus change
     private var lastRowsFocus: java.lang.ref.WeakReference<View>? = null
-    private val rowsFocusTracker = android.view.ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
-        if (newFocus != null && newFocus.isRowsDescendant()) {
-            lastRowsFocus = java.lang.ref.WeakReference(newFocus)
-        }
-    }
     private fun View.isRowsDescendant(): Boolean {
-        var p = parent
+        var p: android.view.ViewParent? = parent
         while (p != null) { if (p === binding.rvRows) return true; p = p.parent }
         return false
     }
@@ -84,7 +79,6 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
-        binding.root.viewTreeObserver.addOnGlobalFocusChangeListener(rowsFocusTracker)
         registerPackageReceiver()
         try {
             contentResolver.registerContentObserver(
@@ -104,7 +98,6 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
-        try { binding.root.viewTreeObserver.removeOnGlobalFocusChangeListener(rowsFocusTracker) } catch (_: Exception) { }
         try { contentResolver.unregisterContentObserver(tvObserver) } catch (e: Exception) { }
         idleHandler.removeCallbacks(idleRunnable)
     }
@@ -435,13 +428,15 @@ class HomeActivity : AppCompatActivity() {
             wallpaperUri      = wallpaperUri,
             onDismissed       = {
                 activePanel = null
-                vm.loadAll()
+                // Restore focus first (synchronously, card still attached) then reload
+                // so the RecyclerView update can't steal focus before it's set.
                 val target = lastRowsFocus?.get()
                 if (target != null && target.isAttachedToWindow) {
-                    target.post { target.requestFocus() }
+                    target.requestFocus()
                 } else {
-                    binding.rvRows.post { binding.rvRows.requestFocus() }
+                    binding.rvRows.requestFocus()
                 }
+                vm.loadAll()
             },
             initialApp        = initialApp,
             onSettingsChanged = { vm.loadAll() }
@@ -508,7 +503,16 @@ class HomeActivity : AppCompatActivity() {
             if (event.action == KeyEvent.ACTION_DOWN) exitIdle()
             return true  // consume the event — don't propagate
         }
-        if (event.action == KeyEvent.ACTION_DOWN) resetIdleTimer()
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            // Capture the focused card BEFORE the key event moves focus away from it.
+            // currentFocus here is the view that has focus right now, so pressing DPAD_UP
+            // while on a card records that card before focus shifts to e.g. btnSettings.
+            val focused = currentFocus
+            if (focused != null && focused.isRowsDescendant()) {
+                lastRowsFocus = java.lang.ref.WeakReference(focused)
+            }
+            resetIdleTimer()
+        }
         return super.dispatchKeyEvent(event)
     }
 
