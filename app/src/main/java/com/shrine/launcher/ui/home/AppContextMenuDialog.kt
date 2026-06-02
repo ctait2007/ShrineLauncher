@@ -98,7 +98,7 @@ class AppContextMenuDialog(
             return
         }
         scope.launch {
-            val result = adb.executeShell("pm force-stop $packageName")
+            val result = adb.executeShell("am force-stop $packageName")
             Toast.makeText(context,
                 if (result.exitCode == 0) "${app.label} stopped"
                 else "Force stop failed: ${result.output}",

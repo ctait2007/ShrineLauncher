@@ -538,20 +538,41 @@ class HomeActivity : AppCompatActivity() {
     private fun installApkFromUri(uri: Uri) {
         lifecycleScope.launch {
             Toast.makeText(this@HomeActivity, "Copying APK…", Toast.LENGTH_SHORT).show()
-            val ok = withContext(Dispatchers.IO) {
+            val dest = withContext(Dispatchers.IO) {
                 try {
-                    val dest = java.io.File("/data/local/tmp", "shrine_browse_install.apk")
+                    val f = java.io.File("/data/local/tmp", "shrine_browse_install.apk")
                     contentResolver.openInputStream(uri)?.use { input ->
-                        java.io.FileOutputStream(dest).use { out -> input.copyTo(out) }
+                        java.io.FileOutputStream(f).use { out -> input.copyTo(out) }
                     }
-                    val proc = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", dest.absolutePath))
-                    val output = proc.inputStream.bufferedReader().readText()
-                    proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
-                } catch (e: Exception) { false }
+                    f
+                } catch (e: Exception) { null }
             }
-            Toast.makeText(this@HomeActivity,
-                if (ok) "APK installed successfully" else "Install failed — grant INSTALL_PACKAGES via ADB",
-                Toast.LENGTH_LONG).show()
+            if (dest == null) {
+                Toast.makeText(this@HomeActivity, "Failed to copy APK", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val adb = com.shrine.launcher.adb.AdbManager.getInstance(this@HomeActivity)
+            if (adb.isConnected()) {
+                val result = adb.executeShell("pm install -r ${dest.absolutePath}")
+                Toast.makeText(this@HomeActivity,
+                    if (result.exitCode == 0) "APK installed successfully"
+                    else "Install failed: ${result.output}",
+                    Toast.LENGTH_LONG).show()
+                dest.delete()
+            } else {
+                // Fallback: system installer UI
+                try {
+                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                        this@HomeActivity, "${packageName}.fileprovider", dest)
+                    startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        setDataAndType(fileUri, "application/vnd.android.package-archive")
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (e: Exception) {
+                    Toast.makeText(this@HomeActivity, "Install failed: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+            }
         }
     }
 

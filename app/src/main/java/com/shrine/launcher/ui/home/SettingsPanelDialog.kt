@@ -485,7 +485,7 @@ class SettingsPanelDialog(
         addEntry("Install 3rd Party Apps", R.drawable.ic_install, showArrow = true) {
             navigateTo("Install Apps") { buildInstallerPage() }
         }
-        addEntry("ADB Shell", R.drawable.ic_install, showArrow = true) {
+        addEntry("ADB Shell", R.drawable.ic_tune, showArrow = true) {
             navigateTo("ADB Shell") { buildAdbShellPage() }
         }
     }
@@ -1184,7 +1184,7 @@ class SettingsPanelDialog(
                 return@addEntry
             }
             scope.launch {
-                val result = adb.executeShell("pm force-stop ${app.packageName}")
+                val result = adb.executeShell("am force-stop ${app.packageName}")
                 Toast.makeText(context,
                     if (result.exitCode == 0) "${app.label} stopped"
                     else "Force stop failed: ${result.output}",
@@ -1195,14 +1195,11 @@ class SettingsPanelDialog(
 
         addEntry("Uninstall", labelColor = 0xFFCF6679.toInt()) {
             scope.launch {
-                // Try silent uninstall via pm first
-                val ok = withContext(Dispatchers.IO) {
-                    try {
-                        val proc = Runtime.getRuntime().exec(arrayOf("pm", "uninstall", app.packageName))
-                        val output = proc.inputStream.bufferedReader().readText()
-                        proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
-                    } catch (e: Exception) { false }
-                }
+                val adb = AdbManager.getInstance(context)
+                val ok = if (adb.isConnected()) {
+                    val result = adb.executeShell("pm uninstall ${app.packageName}")
+                    result.exitCode == 0
+                } else false
                 if (ok) {
                     Toast.makeText(context, "${app.label} uninstalled", Toast.LENGTH_SHORT).show()
                 } else {
@@ -1694,15 +1691,13 @@ class SettingsPanelDialog(
                     tvStatus.text = "Download failed — check the URL"; return@launch
                 }
                 tvStatus.text = "Installing…"
-                // Silent install via pm — works when INSTALL_PACKAGES permission is granted
-                val ok = withContext(kotlinx.coroutines.Dispatchers.IO) {
-                    try {
-                        val proc = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", apkFile.absolutePath))
-                        val output = proc.inputStream.bufferedReader().readText()
-                        proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
-                    } catch (e: Exception) { false }
+                val adb = AdbManager.getInstance(context)
+                val shellResult = if (adb.isConnected()) {
+                    adb.executeShell("pm install -r ${apkFile.absolutePath}")
+                } else null
+                if (shellResult != null && shellResult.exitCode == 0) {
+                    tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch
                 }
-                if (ok) { tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch }
                 // Fallback: system installer UI
                 tvStatus.text = "Opening system installer…"
                 try {
@@ -1732,23 +1727,23 @@ class SettingsPanelDialog(
     private fun buildAdbShellPage() {
         val adb = AdbManager.getInstance(context)
 
+        // ── Permission / connection ───────────────────────────────────────────
+        addSectionHeader("CONNECTION")
+
         // ── Status ────────────────────────────────────────────────────────────
         val statusColor = if (adb.state == AdbManager.AdbState.CONNECTED) 0xFF4CAF50.toInt()
                           else 0xFFE53935.toInt()
         val statusText = when (adb.state) {
             AdbManager.AdbState.DISCONNECTED -> "Not connected"
             AdbManager.AdbState.CONNECTING   -> "Connecting…"
-            AdbManager.AdbState.CONNECTED    -> "Connected  uid=2000(shell)"
+            AdbManager.AdbState.CONNECTED    -> "Connected"
         }
         val tvStatus = android.widget.TextView(context).apply {
             text = statusText; setTextColor(statusColor)
             textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+            setPadding((20 * dp).toInt(), (4 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
         }
         body.addView(tvStatus)
-
-        // ── Permission / connection ───────────────────────────────────────────
-        addSectionHeader("CONNECTION")
 
         if (!adb.hasPermission()) {
             val tvPerm = android.widget.TextView(context).apply {
@@ -1791,10 +1786,10 @@ class SettingsPanelDialog(
 
         // ── Shell section (connected only) ────────────────────────────────────
         if (adb.state == AdbManager.AdbState.CONNECTED) {
-            addSectionHeader("SHELL  —  uid=2000(shell)")
+            addSectionHeader("SHELL")
 
             val etCmd = makeEditText("").also {
-                it.hint = "pm force-stop com.example.app"
+                it.hint = "am force-stop com.example.app"
                 it.textSize = 12f
             }
             body.addView(etCmd)
@@ -1806,7 +1801,7 @@ class SettingsPanelDialog(
             }
             body.addView(tvOutput)
 
-            addEntry("Run", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+            addEntry("Run", R.drawable.ic_arrow_right, labelColor = 0xFFE53935.toInt()) {
                 val cmd = etCmd.text.toString().trim()
                 if (cmd.isBlank()) { tvOutput.text = "Enter a command"; return@addEntry }
                 tvOutput.text = "Running…"
