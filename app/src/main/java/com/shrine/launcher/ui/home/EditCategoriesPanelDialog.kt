@@ -75,7 +75,7 @@ class EditCategoriesPanelDialog(
             if (!row.isVisible) tvLabel.alpha = 0.5f
             helper.applyFocusBehavior(v, tvLabel, null)
             v.setOnClickListener {
-                CategoryEditorDialog(context, row) { buildList() }.show()
+                CategoryEditorPanelDialog(context, row) { buildList() }.show()
             }
             body.addView(v)
         }
@@ -90,7 +90,7 @@ class EditCategoriesPanelDialog(
         )
         prefRepo.addRow(newRow)
         buildList()
-        CategoryEditorDialog(context, newRow) { buildList() }.show()
+        CategoryEditorPanelDialog(context, newRow) { buildList() }.show()
     }
 
     override fun onBackPressed() { dismiss() }

@@ -129,7 +129,7 @@ class HomeActivity : AppCompatActivity() {
             onRowIconSizeChange    = { row -> vm.updateRow(row) },
             cornerRadiusPercent    = prefs?.cardCornerRadiusPercent ?: 50,
             iconSizeDp             = iconSizeDp(prefs?.iconSizeLabel ?: "M"),
-            rowStartPaddingDp      = prefs?.rowStartPaddingDp ?: 24,
+            rowStartPaddingDp      = ((prefs?.rowStartPaddingDp ?: 20) * 120 / 100),
             itemSpacingDp          = prefs?.itemSpacingPercent ?: 10,
             rowSpacingDp           = prefs?.rowSpacingPercent ?: 20
         )
@@ -282,13 +282,9 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun applyStatusBarSize(prefs: LauncherPrefs) {
-        val pct  = prefs.statusBarIconSizePercent.coerceIn(50, 150)
-        val base = 40f * resources.displayMetrics.density
-        val size = (base * pct / 100f).toInt()
-        val lp   = binding.btnSettings.layoutParams
-        lp.width  = size
-        lp.height = size
-        binding.btnSettings.layoutParams = lp
+        val scale = prefs.statusBarIconSizePercent.coerceIn(50, 150) / 100f
+        binding.btnSettings.scaleX = scale
+        binding.btnSettings.scaleY = scale
     }
 
     // ── Idle Mode ──────────────────────────────────────────────────────────────
@@ -352,10 +348,12 @@ class HomeActivity : AppCompatActivity() {
         binding.btnSettings.setOnClickListener {
             val wallpaperUri = vm.prefs.value?.wallpaperUri
                 ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
-            SettingsPanelDialog(this, wallpaperUri) {
-                // focus returns to settings button on dismiss
-                binding.btnSettings.post { binding.btnSettings.requestFocus() }
-            }.show()
+            SettingsPanelDialog(
+                context          = this,
+                wallpaperUri     = wallpaperUri,
+                onDismissed      = { binding.btnSettings.post { binding.btnSettings.requestFocus() } },
+                onAppLongClick   = { app -> showAppContextMenu(app) }
+            ).show()
         }
         binding.btnSettings.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             val dp = v.resources.displayMetrics.density

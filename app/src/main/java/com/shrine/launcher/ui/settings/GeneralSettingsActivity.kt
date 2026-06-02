@@ -1,8 +1,6 @@
 package com.shrine.launcher.ui.settings
 
-import android.app.role.RoleManager
 import android.content.Intent
-import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import kotlinx.coroutines.CoroutineScope
@@ -28,16 +26,25 @@ class GeneralSettingsActivity : BaseSettingsActivity() {
             saveAndRefresh { it.copy(channelsEnabled = checked) }
         }
 
-        addButton("Set as Default Launcher") {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                val rm = getSystemService(RoleManager::class.java)
-                if (rm.isRoleAvailable(RoleManager.ROLE_HOME) && !rm.isRoleHeld(RoleManager.ROLE_HOME)) {
-                    startActivityForResult(rm.createRequestRoleIntent(RoleManager.ROLE_HOME), 0)
-                } else {
-                    Toast.makeText(this, "Already set as default launcher", Toast.LENGTH_SHORT).show()
+        addButton("Set as Default Launcher",
+            subtitle = "Opens system home-app picker") {
+            // On Fire TV / Android TV, open the system's default-home selector.
+            // We send a HOME intent so the OS shows the disambiguation dialog,
+            // or fall back to ACTION_HOME_SETTINGS if the chooser doesn't appear.
+            try {
+                val pick = Intent(Intent.ACTION_MAIN).apply {
+                    addCategory(Intent.CATEGORY_HOME)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 }
-            } else {
-                startActivity(Intent(android.provider.Settings.ACTION_HOME_SETTINGS))
+                startActivity(pick)
+            } catch (e: Exception) {
+                try {
+                    startActivity(Intent(android.provider.Settings.ACTION_HOME_SETTINGS))
+                } catch (e2: Exception) {
+                    Toast.makeText(this,
+                        "Open Settings → Applications → Default Apps → Home App",
+                        Toast.LENGTH_LONG).show()
+                }
             }
         }
 

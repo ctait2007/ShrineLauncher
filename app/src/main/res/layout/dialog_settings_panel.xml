@@ -18,21 +18,19 @@
 
         <ImageView
             android:id="@+id/ivPanelLogo"
-            android:layout_width="120dp"
-            android:layout_height="40dp"
+            android:layout_width="140dp"
+            android:layout_height="48dp"
             android:src="@drawable/banner"
             android:scaleType="fitStart"
             android:adjustViewBounds="true"
             android:contentDescription="Shrine Launcher" />
 
+        <!-- date removed; keep id so Kotlin references don't crash -->
         <TextView
             android:id="@+id/tvPanelDate"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textColor="#FFB0B0B0"
-            android:textSize="12sp"
-            android:text="Mon Jun 1, 2026" />
+            android:layout_width="0dp"
+            android:layout_height="0dp"
+            android:visibility="gone" />
     </LinearLayout>
 
     <View
@@ -46,7 +44,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:background="#801A1A1A"
+        android:background="#CC1A1A1A"
         android:scrollbars="none">
 
         <LinearLayout

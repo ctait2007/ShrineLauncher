@@ -26,7 +26,8 @@ import java.util.Locale
 class SettingsPanelDialog(
     context: Context,
     private val wallpaperUri: String? = null,
-    private val onDismissed: (() -> Unit)? = null
+    private val onDismissed: (() -> Unit)? = null,
+    private val onAppLongClick: ((com.shrine.launcher.data.model.AppInfo) -> Unit)? = null
 ) : Dialog(context) {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +61,7 @@ class SettingsPanelDialog(
 
         addSectionHeader(body, "SETTINGS")
         addMenuItem(body, "All Apps", R.drawable.ic_grid, showArrow = false) {
-            AllAppsPanelDialog(context, wallpaperUri).show()
+            AllAppsPanelDialog(context, wallpaperUri, onAppLongClick).show()
         }
         addMenuItem(body, "Edit Categories", R.drawable.ic_settings_rows, showArrow = false) {
             EditCategoriesPanelDialog(context, wallpaperUri).show()
@@ -69,8 +70,9 @@ class SettingsPanelDialog(
             EditChannelsPanelDialog(context, wallpaperUri).show()
         }
         addSeparator(body)
-        addMenuItem(body, "Shrine Settings", R.drawable.ic_settings, showArrow = true) {
-            dismiss()
+        var shrineSettingsView: View? = null
+        shrineSettingsView = addMenuItem(body, "Shrine Settings", R.drawable.ic_settings, showArrow = true) {
+            // Keep the panel open so back from ShrineSettingsActivity returns here
             context.startActivity(Intent(context, ShrineSettingsActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 wallpaperUri?.let { putExtra("wallpaper_uri", it) }
@@ -135,7 +137,7 @@ class SettingsPanelDialog(
                 setColor(if (hasFocus) 0x1AFFFFFF.toInt() else 0x00000000)
                 setStroke(
                     if (hasFocus) (2 * dp).toInt() else 0,
-                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000
+                    if (hasFocus) 0xFFE53935.toInt() else 0x00000000
                 )
                 cornerRadius = 8 * dp
             }

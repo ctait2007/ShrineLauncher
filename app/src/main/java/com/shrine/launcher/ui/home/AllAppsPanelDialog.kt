@@ -26,7 +26,8 @@ import kotlinx.coroutines.withContext
 
 class AllAppsPanelDialog(
     context: Context,
-    private val wallpaperUri: String? = null
+    private val wallpaperUri: String? = null,
+    private val onAppLongClick: ((AppInfo) -> Unit)? = null
 ) : Dialog(context) {
 
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
@@ -80,7 +81,7 @@ class AllAppsPanelDialog(
                 dismiss()
             }
             v.setOnLongClickListener {
-                // Will be wired to context menu from HomeActivity in Phase 4
+                onAppLongClick?.invoke(app)
                 true
             }
             body.addView(v)
@@ -95,7 +96,7 @@ class AllAppsPanelDialog(
                 setColor(if (hasFocus) 0x1AFFFFFF.toInt() else 0x00000000)
                 setStroke(
                     if (hasFocus) (2 * dp).toInt() else 0,
-                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000
+                    if (hasFocus) 0xFFE53935.toInt() else 0x00000000
                 )
                 cornerRadius = 8 * dp
             }

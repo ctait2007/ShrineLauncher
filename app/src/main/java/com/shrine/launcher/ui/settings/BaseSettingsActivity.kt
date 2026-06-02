@@ -150,7 +150,7 @@ abstract class BaseSettingsActivity : AppCompatActivity() {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 setColor(if (hasFocus) 0x1AFFFFFF.toInt() else 0x00000000)
                 setStroke(if (hasFocus) (2 * dp).toInt() else 0,
-                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000)
+                    if (hasFocus) 0xFFE53935.toInt() else 0x00000000)
                 cornerRadius = 8 * dp
             }
             view.background = bg

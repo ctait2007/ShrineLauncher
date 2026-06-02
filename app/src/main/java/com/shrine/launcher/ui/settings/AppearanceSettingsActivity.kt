@@ -10,11 +10,11 @@ class AppearanceSettingsActivity : BaseSettingsActivity() {
         setupBase("Appearance", intent.getStringExtra("wallpaper_uri"))
         val wu = intent.getStringExtra("wallpaper_uri")
 
-        addButton("Category / Channel appearance") {
+        addButton("Categories / Channels") {
             startActivity(Intent(this, CategoryAppearanceActivity::class.java)
                 .apply { wu?.let { putExtra("wallpaper_uri", it) } })
         }
-        addButton("Card appearance") {
+        addButton("Cards") {
             startActivity(Intent(this, CardAppearanceActivity::class.java)
                 .apply { wu?.let { putExtra("wallpaper_uri", it) } })
         }

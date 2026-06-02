@@ -20,19 +20,20 @@ class CategoryAppearanceActivity : BaseSettingsActivity() {
         }
 
         addSlider("Bottom margin", value = prefs.rowsBottomMarginPercent,
-            min = 0, max = 90, step = 5,
+            min = 0, max = 100, step = 5,
             displayFn = { "$it%" }) { v ->
             saveAndRefresh { it.copy(rowsBottomMarginPercent = v) }
         }
 
-        addSlider("Start margin", value = prefs.rowStartPaddingDp,
-            min = 0, max = 120, step = 4,
-            displayFn = { "${it}dp" }) { v ->
+        // rowStartPaddingDp stores 0–100 percentage; rendered as (value/100)*120dp
+        addSlider("Start margin", value = prefs.rowStartPaddingDp.coerceIn(0, 100),
+            min = 0, max = 100, step = 5,
+            displayFn = { "$it%" }) { v ->
             saveAndRefresh { it.copy(rowStartPaddingDp = v) }
         }
 
         addSlider("Row spacing", value = prefs.rowSpacingPercent,
-            min = 0, max = 60, step = 4,
+            min = 0, max = 100, step = 5,
             displayFn = { "$it%" }) { v ->
             saveAndRefresh { it.copy(rowSpacingPercent = v) }
         }

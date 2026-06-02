@@ -140,9 +140,15 @@ class ChannelEditorDialog(
 
     private fun showSourceFilter() {
         scope.launch {
+            // Only show apps that actually publish TvProvider channels
+            val tvChannels = withContext(Dispatchers.IO) {
+                com.shrine.launcher.data.repository.TvContentRepository
+                    .getInstance(context).listTvProviderChannels()
+            }
+            val channelPackages = tvChannels.map { it.third }.distinct()
             val allApps = withContext(Dispatchers.IO) {
                 AppRepository.getInstance(context).getAllApps()
-            }
+            }.filter { it.packageName in channelPackages }
             val pkgNames = allApps.map { it.packageName }.toTypedArray()
             val labels   = allApps.map { it.label }.toTypedArray()
             val allowed  = row.allowedPackages
@@ -169,7 +175,7 @@ class ChannelEditorDialog(
                 setColor(if (hasFocus) 0x1AFFFFFF.toInt() else 0x00000000)
                 setStroke(
                     if (hasFocus) (2 * dp).toInt() else 0,
-                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000
+                    if (hasFocus) 0xFFE53935.toInt() else 0x00000000
                 )
                 cornerRadius = 8 * dp
             }
