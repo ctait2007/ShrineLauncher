@@ -126,6 +126,7 @@ class HomeActivity : AppCompatActivity() {
     override fun onStop() {
         super.onStop()
         try { contentResolver.unregisterContentObserver(tvObserver) } catch (e: Exception) { }
+        try { unregisterReceiver(packageReceiver) } catch (e: Exception) { }
         idleHandler.removeCallbacks(idleRunnable)
     }
 

@@ -113,12 +113,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 tvProviderMap[row.id] = content
             }
 
+            // If a package was just installed, float it to position 0
+            val orderedApps = recentlyInstalledPackage?.let { pkg ->
+                recentlyInstalledPackage = null
+                val newApp = allApps.find { it.packageName == pkg }
+                if (newApp != null) listOf(newApp) + allApps.filter { it.packageName != pkg }
+                else allApps
+            } ?: allApps
+
             _prefs.value            = p
             _rows.value             = rows.filter { it.isVisible }
             _widgets.value          = p.pinnedWidgets.sortedBy { it.position }
             _theme.value            = p.theme
             _favourites.value       = favs
-            _allApps.value          = allApps
+            _allApps.value          = orderedApps
             _recentApps.value       = recentApps
             _continueWatching.value = cw
             _watchNext.value        = wn
@@ -189,15 +197,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun getAppsForRow(row: LauncherRow): List<AppInfo> {
         if (row.kind != RowKind.CATEGORY) return emptyList()
         return when (row.categoryType) {
-            CategoryType.ALL_APPS        -> {
-                val apps = _allApps.value ?: emptyList()
-                val pkg = recentlyInstalledPackage
-                if (pkg != null) {
-                    val newApp = apps.find { it.packageName == pkg }
-                    if (newApp != null) listOf(newApp) + apps.filter { it.packageName != pkg }
-                    else apps
-                } else apps
-            }
+            CategoryType.ALL_APPS        -> _allApps.value ?: emptyList()
             CategoryType.RECENTLY_OPENED -> _recentApps.value ?: emptyList()
             CategoryType.INSTALL         -> listOf(installAppInfo)
             CategoryType.FAVORITES       -> {

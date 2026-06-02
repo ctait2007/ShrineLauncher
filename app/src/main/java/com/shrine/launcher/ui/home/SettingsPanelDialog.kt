@@ -1742,6 +1742,12 @@ class SettingsPanelDialog(
             // ── Connected: SHELL at top, disconnect at bottom ─────────────────
             addSectionHeader("SHELL")
 
+            body.addView(android.widget.TextView(context).apply {
+                text = "Connected"; setTextColor(0xFF4CAF50.toInt())
+                textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+            })
+
             val etCmd = makeEditText("").also {
                 it.hint = "am force-stop com.example.app"
                 it.textSize = 12f
@@ -1766,7 +1772,7 @@ class SettingsPanelDialog(
             }
 
             addSeparator()
-            addEntry("Disconnect", labelColor = 0xFFCF6679.toInt()) {
+            addEntry("Disconnect", labelColor = 0xFFE53935.toInt()) {
                 adb.doDisconnect(); rawShowPage(currentTitle); buildAdbShellPage()
             }
         } else {
