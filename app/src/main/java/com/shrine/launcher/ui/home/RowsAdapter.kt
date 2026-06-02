@@ -409,8 +409,7 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            rvApps.layoutManager =
-                LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -451,8 +450,7 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            rvApps.layoutManager =
-                LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -466,5 +464,13 @@ class RowsAdapter(
                 a.launcherRow.id == b.launcherRow.id
             override fun areContentsTheSame(a: RowItem, b: RowItem) = a == b
         }
+    }
+}
+
+private class FullPreloadLayoutManager(context: android.content.Context) :
+    LinearLayoutManager(context, HORIZONTAL, false) {
+    override fun calculateExtraLayoutSpace(state: RecyclerView.State, extraLayoutSpace: IntArray) {
+        extraLayoutSpace[0] = 100_000
+        extraLayoutSpace[1] = 100_000
     }
 }
