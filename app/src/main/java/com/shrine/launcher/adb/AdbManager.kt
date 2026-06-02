@@ -7,6 +7,7 @@ import io.github.muntashirakon.adb.AbsAdbConnectionManager
 import io.github.muntashirakon.adb.AdbStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.bouncycastle.asn1.x500.X500Name
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
@@ -109,15 +110,23 @@ class AdbManager private constructor(context: Context) : AbsAdbConnectionManager
         withContext(Dispatchers.IO) {
             state = AdbState.CONNECTING
             try {
-                val ok = connect(host, port)
-                if (ok) {
-                    prefs.edit().putString("adb_host", host).putInt("adb_port", port).apply()
-                    state = AdbState.CONNECTED
-                    ConnectResult(success = true)
-                } else {
-                    state = AdbState.DISCONNECTED
-                    ConnectResult(success = false,
-                        error = "Connection refused — ensure ADB debugging is on and try approving the dialog on screen")
+                val ok = withTimeoutOrNull(15_000L) { connect(host, port) }
+                when {
+                    ok == null -> {
+                        doDisconnect()
+                        ConnectResult(success = false,
+                            error = "Timed out — approve the 'Allow ADB debugging?' dialog on screen, then try again")
+                    }
+                    ok -> {
+                        prefs.edit().putString("adb_host", host).putInt("adb_port", port).apply()
+                        state = AdbState.CONNECTED
+                        ConnectResult(success = true)
+                    }
+                    else -> {
+                        state = AdbState.DISCONNECTED
+                        ConnectResult(success = false,
+                            error = "Connection refused — ensure ADB debugging is on")
+                    }
                 }
             } catch (e: Exception) {
                 state = AdbState.DISCONNECTED

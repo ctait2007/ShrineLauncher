@@ -11,8 +11,8 @@ android {
         applicationId = "com.shrine.launcher"
         minSdk = 22
         targetSdk = 34
-        versionCode = 72
-        versionName = "0.10.19"
+        versionCode = 73
+        versionName = "0.10.20"
     }
 
     // Use the project keystore (shrine-debug.jks) when present — ensures the same
