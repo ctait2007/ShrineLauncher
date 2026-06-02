@@ -66,6 +66,19 @@
                 android:textSize="12sp" />
         </LinearLayout>
 
+        <!-- Wi-Fi status button (optional, controlled by settings) -->
+        <ImageButton
+            android:id="@+id/btnWifi"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_wifi"
+            android:background="@android:color/transparent"
+            android:contentDescription="Wi-Fi Settings"
+            android:focusable="true"
+            android:tint="@color/text_secondary"
+            android:visibility="gone"
+            android:layout_marginEnd="8dp" />
+
         <!-- Settings gear -->
         <ImageButton
             android:id="@+id/btnSettings"

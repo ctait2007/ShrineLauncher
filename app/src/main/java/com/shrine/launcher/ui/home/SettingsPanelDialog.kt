@@ -106,6 +106,9 @@ class SettingsPanelDialog(
 
         setOnDismissListener { onDismissed?.invoke() }
 
+        // Apply rounded corners after the view is laid out
+        body.post { applyRoundedCorners() }
+
         if (initialApp != null) {
             showPage(initialApp.label, false) { buildContextMenu(initialApp) }
         } else {
@@ -116,20 +119,40 @@ class SettingsPanelDialog(
     private fun configureWindow() {
         window?.apply {
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
-            setGravity(Gravity.END or Gravity.FILL_VERTICAL)
-            val w = (context.resources.displayMetrics.widthPixels * 0.30f).toInt()
-            setLayout(w, WindowManager.LayoutParams.MATCH_PARENT)
+            setGravity(Gravity.END or Gravity.CENTER_VERTICAL)
+            val dm = context.resources.displayMetrics
+            val w  = (dm.widthPixels  * 0.26f).toInt()
+            val h  = (dm.heightPixels * 0.88f).toInt()
+            setLayout(w, h)
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
+            // Slight margin from the right edge
+            val attrs = attributes
+            attrs.x = (6 * context.resources.displayMetrics.density).toInt()
+            attributes = attrs
         }
     }
 
+    // Applied after layout is measured so width is known
+    private fun applyRoundedCorners() {
+        val root = findViewById<View>(R.id.panelRoot) ?: return
+        val radius = 16f * dp
+        root.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, radius)
+            }
+        }
+        root.clipToOutline = true
+    }
+
     override fun onBackPressed() {
+        notifyChanged()   // apply any deferred setting changes on page exit
         if (navStack.isEmpty()) { dismiss(); return }
         val prev = navStack.removeLast()
         currentTitle   = prev.title
         currentBuilder = prev.builder
         rawShowPage(prev.title)
         prev.builder()
+        focusFirstItem()
     }
 
     override fun onStop() { super.onStop(); scope.cancel() }
@@ -574,6 +597,7 @@ class SettingsPanelDialog(
         // Manage apps (custom + favourites only)
         if (row.categoryType !in listOf(CategoryType.ALL_APPS, CategoryType.INSTALL)) {
             addEntry("Manage Apps", R.drawable.ic_settings_rows, showArrow = true) {
+                manageAllowed = row.apps.toMutableList()  // fresh copy on entry
                 navigateTo("Manage Apps") { buildManageApps(row) }
             }
         }
@@ -636,21 +660,33 @@ class SettingsPanelDialog(
     // PAGE: MANAGE APPS (panel with toggles)
     // ═══════════════════════════════════════════════════════════════════════════
 
+    // Live state for Manage Apps — persisted to prefs only on page exit
+    private var manageAllowed = mutableListOf<String>()
+
     private fun buildManageApps(row: LauncherRow) {
         pageJob = scope.launch {
             val allApps = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             if (!isActive) return@launch
-            // Shown apps first (in their saved order), then hidden apps alphabetically
-            val allowed = row.apps.toMutableList()
-            val shownApps  = allowed.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
-            val hiddenApps = allApps.filter { it.packageName !in allowed }
+
+            // Shown first (in saved order), then hidden alphabetically
+            // Use manageAllowed as the working copy so toggles survive rebuilds
+            if (manageAllowed.isEmpty() && row.apps.isNotEmpty()) {
+                manageAllowed = row.apps.toMutableList()
+            }
+
+            val shownApps  = manageAllowed.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            // "pendingHidden" = was in row.apps but toggled off this session — stays in shown section
+            val pendingHiddenPkgs = row.apps.filter { it !in manageAllowed }
+            val pendingHidden = pendingHiddenPkgs.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            val hiddenApps = allApps
+                .filter { it.packageName !in row.apps && it.packageName !in manageAllowed }
                 .sortedBy { it.label.lowercase() }
 
-            addSectionHeader("SHOWN — hold + D-pad ▲▼ to reorder")
-            renderManageSection(shownApps, allowed, row, isShownSection = true)
+            addSectionHeader("SHOWN")
+            renderManageSection(shownApps + pendingHidden, pendingHiddenPkgs.toSet(), row, true)
 
             addSectionHeader("HIDDEN")
-            renderManageSection(hiddenApps, allowed, row, isShownSection = false)
+            renderManageSection(hiddenApps, emptySet(), row, false)
 
             focusFirstItem()
         }
@@ -658,72 +694,83 @@ class SettingsPanelDialog(
 
     private fun renderManageSection(
         apps: List<com.shrine.launcher.data.model.AppInfo>,
-        allowed: MutableList<String>,
+        pendingOff: Set<String>,     // shown in "shown" section but toggled off this session
         row: LauncherRow,
         isShownSection: Boolean
     ) {
         val inflater = LayoutInflater.from(context)
-        apps.forEach { app ->
-            val v  = inflater.inflate(R.layout.item_all_apps_entry, body, false)
-            val iv = v.findViewById<ImageView>(R.id.ivAppIcon)
-            val tv = v.findViewById<TextView>(R.id.tvAppLabel)
+        apps.forEachIndexed { listIdx, app ->
+            val isPendingOff = app.packageName in pendingOff
+            val isOn = isShownSection && !isPendingOff
+
+            val v    = inflater.inflate(R.layout.item_manage_app_entry, body, false)
+            val iv   = v.findViewById<ImageView>(R.id.ivManageIcon)
+            val tv   = v.findViewById<TextView>(R.id.tvManageLabel)
+            val pill = v.findViewById<TextView>(R.id.tvManagePill)
+            val btnUp   = v.findViewById<TextView>(R.id.btnMoveUp)
+            val btnDown = v.findViewById<TextView>(R.id.btnMoveDown)
+
             app.icon?.let { iv.setImageDrawable(it) }
             tv.text = app.label
 
-            // ON/OFF switch indicator
-            val pill = TextView(context).apply {
-                text = if (isShownSection) "ON" else "OFF"
-                setTextColor(if (isShownSection) 0xFFE53935.toInt() else 0xFF666666.toInt())
-                textSize = 10f
-                typeface = Typeface.DEFAULT_BOLD
+            pill.text = if (isOn) "ON" else "OFF"
+            pill.setTextColor(if (isOn) 0xFFE53935.toInt() else 0xFF666666.toInt())
+
+            // Reorder buttons visible only for shown-and-ON items
+            if (isShownSection && !isPendingOff) {
+                btnUp.visibility   = View.VISIBLE
+                btnDown.visibility = View.VISIBLE
+
+                btnUp.setOnClickListener {
+                    val idx = manageAllowed.indexOf(app.packageName)
+                    if (idx > 0) {
+                        manageAllowed.removeAt(idx); manageAllowed.add(idx - 1, app.packageName)
+                        prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                        rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
+                    }
+                }
+                btnDown.setOnClickListener {
+                    val idx = manageAllowed.indexOf(app.packageName)
+                    if (idx in 0 until manageAllowed.size - 1) {
+                        manageAllowed.removeAt(idx); manageAllowed.add(idx + 1, app.packageName)
+                        prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                        rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
+                    }
+                }
+                applyButtonFocus(btnUp)
+                applyButtonFocus(btnDown)
+            } else {
+                btnUp.visibility   = View.GONE
+                btnDown.visibility = View.GONE
             }
-            (v as LinearLayout).addView(pill)
 
             applyFocus(v, tv)
 
-            // Click to toggle
+            // Row click: toggle shown/hidden
             v.setOnClickListener {
-                if (app.packageName in allowed) {
-                    allowed.remove(app.packageName)
+                if (isShownSection && !isPendingOff) {
+                    // Toggle off: remove from manageAllowed but keep page as-is (stays in shown)
+                    manageAllowed.remove(app.packageName)
+                } else if (isPendingOff) {
+                    // Re-enable: add back to bottom of shown
+                    manageAllowed.add(app.packageName)
                 } else {
-                    // Add to bottom of shown list
-                    allowed.add(app.packageName)
+                    // Was fully hidden: add to shown
+                    manageAllowed.add(app.packageName)
                 }
-                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
-                // Rebuild the page to reflect new order
-                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
-            }
-
-            // Long-press + d-pad up/down to reorder (only for shown apps)
-            if (isShownSection) {
-                var held = false
-                v.setOnLongClickListener { held = true; true }
-                v.setOnKeyListener { _, keyCode, event ->
-                    if (!held || event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-                    val idx = allowed.indexOf(app.packageName)
-                    when (keyCode) {
-                        KeyEvent.KEYCODE_DPAD_UP -> {
-                            if (idx > 0) {
-                                allowed.removeAt(idx); allowed.add(idx - 1, app.packageName)
-                                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
-                                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
-                            }
-                            true
-                        }
-                        KeyEvent.KEYCODE_DPAD_DOWN -> {
-                            if (idx < allowed.size - 1) {
-                                allowed.removeAt(idx); allowed.add(idx + 1, app.packageName)
-                                prefRepo.updateRow(row.copy(apps = allowed.toMutableList())); notifyChanged()
-                                rawShowPage(currentTitle); buildManageApps(row.copy(apps = allowed.toMutableList()))
-                            }
-                            true
-                        }
-                        else -> { held = false; false }
-                    }
-                }
+                // Save immediately but don't do full page rebuild — just update pill
+                prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
+                // Rebuild to reflect new order
+                rawShowPage(currentTitle); buildManageApps(row.copy(apps = manageAllowed.toMutableList()))
             }
 
             body.addView(v)
+        }
+    }
+
+    private fun applyButtonFocus(v: View) {
+        v.setOnFocusChangeListener { view, hasFocus ->
+            view.setBackgroundColor(if (hasFocus) 0x33FFFFFF else 0x00000000)
         }
     }
 
@@ -752,42 +799,52 @@ class SettingsPanelDialog(
                     body.addView(v)
                 }
 
-            // Individual TvProvider channels
+            // Individual TvProvider channels grouped by app
             addSectionHeader("APP CHANNELS")
             if (tvChannels.isEmpty()) {
                 val tv = TextView(context)
                 tv.text = "No app channels found"
                 tv.setTextColor(0xFF555555.toInt())
-                tv.textSize = 13f
+                tv.textSize = 12f
                 tv.setPadding((20 * dp).toInt(), (8 * dp).toInt(), 0, 0)
                 body.addView(tv)
             } else {
-                tvChannels.forEach { (channelId, channelName, _) ->
-                    val existingRow = rows.find {
-                        it.channelType == ChannelType.TV_PROVIDER && it.tvProviderChannelId == channelId
-                    }
-                    val v       = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
-                    val tvLabel = v.findViewById<TextView>(R.id.tvEntryLabel)
-                    v.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
-                    v.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
-                    tvLabel.text = channelName
-                    if (existingRow == null || !existingRow.isVisible) tvLabel.alpha = 0.5f
-                    applyFocus(v, tvLabel)
-                    v.setOnClickListener {
-                        val row = existingRow ?: run {
-                            val nr = LauncherRow(
-                                id = "row_tvprovider_$channelId",
-                                title = channelName,
-                                kind = RowKind.CHANNEL,
-                                channelType = ChannelType.TV_PROVIDER,
-                                tvProviderChannelId = channelId,
-                                isVisible = false
-                            )
-                            prefRepo.addRow(nr); nr
+                val byApp = tvChannels.groupBy { it.third }  // grouped by packageName
+                byApp.forEach { (pkg, channels) ->
+                    // App name header
+                    val appLabel = try {
+                        context.packageManager.getApplicationLabel(
+                            context.packageManager.getApplicationInfo(pkg, 0)).toString()
+                    } catch (e: Exception) { pkg.substringAfterLast('.') }
+                    addSectionHeader("  $appLabel")
+
+                    channels.forEach { (channelId, channelName, _) ->
+                        val existingRow = rows.find {
+                            it.channelType == ChannelType.TV_PROVIDER && it.tvProviderChannelId == channelId
                         }
-                        navigateTo(channelName) { buildChannelEditor(row) }
+                        val v       = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
+                        val tvLabel = v.findViewById<TextView>(R.id.tvEntryLabel)
+                        v.findViewById<ImageView>(R.id.ivEntryIcon).visibility = View.GONE
+                        v.findViewById<ImageView>(R.id.ivEntryArrow).visibility = View.GONE
+                        tvLabel.text = "    $channelName"
+                        if (existingRow == null || !existingRow.isVisible) tvLabel.alpha = 0.5f
+                        applyFocus(v, tvLabel)
+                        v.setOnClickListener {
+                            val row = existingRow ?: run {
+                                val nr = LauncherRow(
+                                    id = "row_tvprovider_$channelId",
+                                    title = channelName,
+                                    kind = RowKind.CHANNEL,
+                                    channelType = ChannelType.TV_PROVIDER,
+                                    tvProviderChannelId = channelId,
+                                    isVisible = false
+                                )
+                                prefRepo.addRow(nr); nr
+                            }
+                            navigateTo(channelName) { buildChannelEditor(row) }
+                        }
+                        body.addView(v)
                     }
-                    body.addView(v)
                 }
             }
             focusFirstItem()
@@ -1143,10 +1200,9 @@ class SettingsPanelDialog(
             else         -> "None"
         }
         addEntry("Select wallpaper(s)  ($currentDesc)") {
-            // Launch WallpaperAppearanceActivity just for the file picker;
-            // it saves directly to prefs and returns
-            context.startActivity(Intent(context, WallpaperAppearanceActivity::class.java).apply {
-                p.wallpaperUri?.let { putExtra("wallpaper_uri", it) }
+            // WallpaperPickerActivity is transparent — only shows the system file picker
+            context.startActivity(Intent(context,
+                com.shrine.launcher.ui.settings.WallpaperPickerActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
@@ -1298,11 +1354,13 @@ class SettingsPanelDialog(
         addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
         addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
         addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
-        addEntry("Wi-Fi settings") {
-            context.startActivity(Intent(Settings.ACTION_WIFI_SETTINGS).apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+        addToggle("Show Wi-Fi button", p.showWifiButton) { c ->
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(showWifiButton = c)); notifyChanged()
         }
+        // Status bar size: deferred — notifyChanged() fires on back press, not per-tick
         addSlider("Status bar size", p.statusBarIconSizePercent, 50, 150, { "$it%" }) { v ->
-            prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v)); notifyChanged()
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v))
+            // no notifyChanged() here — applied on section exit
         }
     }
 
@@ -1317,7 +1375,7 @@ class SettingsPanelDialog(
         }
         addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, { s ->
             if (s < 60) "${s}s" else "${s / 60}m${if (s % 60 > 0) " ${s % 60}s" else ""}"
-        }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)); notifyChanged() }
+        }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)) }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════

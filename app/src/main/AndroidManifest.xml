@@ -68,6 +68,10 @@
             android:exported="false" android:label="Category Appearance" />
         <activity android:name=".ui.settings.CardAppearanceActivity"
             android:exported="false" android:label="Card Appearance" />
+        <activity android:name=".ui.settings.WallpaperPickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Transparent"
+            android:label="Pick Wallpaper" />
         <activity android:name=".ui.settings.WallpaperAppearanceActivity"
             android:exported="false" android:label="Wallpaper" />
         <activity android:name=".ui.settings.StatusBarSettingsActivity"

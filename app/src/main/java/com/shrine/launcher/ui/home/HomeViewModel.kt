@@ -174,10 +174,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     // Virtual AppInfo used as the single icon in the Install row
     private val installAppInfo by lazy {
+        val icon = try {
+            androidx.core.content.ContextCompat.getDrawable(getApplication(), com.shrine.launcher.R.drawable.ic_install)
+        } catch (e: Exception) { null }
         AppInfo(
             packageName = "com.shrine.launcher.INSTALL_ROW",
             label       = "App Installer",
-            icon        = null
+            icon        = icon
         )
     }
 

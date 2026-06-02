@@ -160,6 +160,7 @@ class HomeActivity : AppCompatActivity() {
             applyClock(prefs)
             applyBottomMargin(prefs)
             applyStatusBarSize(prefs)
+            applyWifiButton(prefs)
             setupIdleMode(prefs)
             setupRows()
             rebuildRows()
@@ -285,9 +286,15 @@ class HomeActivity : AppCompatActivity() {
         val scale = prefs.statusBarIconSizePercent.coerceIn(50, 150) / 100f
         binding.btnSettings.scaleX = scale
         binding.btnSettings.scaleY = scale
-        // Scale clock & date text sizes proportionally (base: 20sp clock, 12sp date)
         binding.tvClock.textSize = 20f * scale
         binding.tvDate.textSize  = 12f * scale
+        // Wi-Fi button scale too
+        binding.btnWifi.scaleX = scale
+        binding.btnWifi.scaleY = scale
+    }
+
+    private fun applyWifiButton(prefs: LauncherPrefs) {
+        binding.btnWifi.visibility = if (prefs.showWifiButton) View.VISIBLE else View.GONE
     }
 
     // ── Idle Mode ──────────────────────────────────────────────────────────────
@@ -348,8 +355,23 @@ class HomeActivity : AppCompatActivity() {
     // ── Buttons ────────────────────────────────────────────────────────────────
 
     private fun setupButtons() {
-        binding.btnSettings.setOnClickListener {
-            openPanel()
+        binding.btnSettings.setOnClickListener { openPanel() }
+
+        binding.btnWifi.setOnClickListener {
+            startActivity(android.content.Intent(android.provider.Settings.ACTION_WIFI_SETTINGS).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
+        }
+        binding.btnWifi.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
+            val dp = v.resources.displayMetrics.density
+            val bg = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.RECTANGLE
+                setColor(0x00000000)
+                setStroke(if (hasFocus) (2 * dp).toInt() else 0,
+                    if (hasFocus) 0xFFFFFFFF.toInt() else 0x00000000)
+                cornerRadius = 8 * dp
+            }
+            v.background = bg
         }
         binding.btnSettings.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             val dp = v.resources.displayMetrics.density
