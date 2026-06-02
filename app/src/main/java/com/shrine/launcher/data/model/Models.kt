@@ -123,7 +123,7 @@ data class LauncherPrefs(
     val focusScaleEnabled: Boolean          = true,
     val focusScaleFactor: Float             = 1.12f,
     val rowLabelStyle: String               = "ABOVE",
-    val iconSizeLabel: String               = "M",      // S=64 M=88 L=112 XL=144
+    val iconSizeLabel: String               = "M",      // S=80 M=108 L=160 XL=200
     val cardCornerRadiusPercent: Int        = 50,
     val wallpaperUri: String?               = null,
     val wallpaperUris: List<String>         = emptyList(), // slideshow collection
@@ -138,11 +138,11 @@ data class LauncherPrefs(
 )
 
 fun iconSizeDp(label: String): Int = when (label) {
-    "S"  -> 64
-    "M"  -> 88
-    "L"  -> 132
-    "XL" -> 172
-    else -> 88
+    "S"  -> 80
+    "M"  -> 108
+    "L"  -> 160
+    "XL" -> 200
+    else -> 108
 }
 
 private fun defaultRows(): List<LauncherRow> = listOf(

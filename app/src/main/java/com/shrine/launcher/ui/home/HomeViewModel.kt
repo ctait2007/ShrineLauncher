@@ -149,4 +149,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         prefRepo.saveRows(rows)
         _rows.value = rows.filter { it.isVisible }
     }
+
+    fun updateRow(updated: LauncherRow) {
+        val rows = prefRepo.loadRows().map { if (it.id == updated.id) updated else it }
+        prefRepo.saveRows(rows)
+        _rows.value = rows.filter { it.isVisible }
+    }
 }

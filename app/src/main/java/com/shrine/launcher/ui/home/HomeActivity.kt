@@ -119,6 +119,7 @@ class HomeActivity : AppCompatActivity() {
                     if (row.cardDisplayMode == CardDisplayMode.ICON)
                         CardDisplayMode.BANNER else CardDisplayMode.ICON)
             },
+            onRowIconSizeChange    = { row -> vm.updateRow(row) },
             cornerRadiusPercent    = prefs?.cardCornerRadiusPercent ?: 50,
             iconSizeDp             = com.shrine.launcher.data.model.iconSizeDp(prefs?.iconSizeLabel ?: "M"),
             rowStartPaddingDp      = prefs?.rowStartPaddingDp ?: 24,

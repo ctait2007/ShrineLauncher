@@ -25,6 +25,7 @@ class RowsAdapter(
     private val onRowFocused: (String) -> Unit,
     private val onRowSettingsClick: (LauncherRow) -> Unit,
     private val onRowDisplayModeToggle: (LauncherRow) -> Unit,
+    private val onRowIconSizeChange: (LauncherRow) -> Unit = {},
     private val cornerRadiusPercent: Int = 50,
     private val iconSizeDp: Int = 88,
     private val rowStartPaddingDp: Int = 24,
@@ -115,8 +116,10 @@ class RowsAdapter(
                 android.app.AlertDialog.Builder(itemView.context)
                     .setTitle("Icon Size")
                     .setSingleChoiceItems(sizes, current) { dialog, which ->
-                        onRowSettingsClick(row.copy(iconSizeLabelOverride = labels[which]))
+                        onRowIconSizeChange(row.copy(iconSizeLabelOverride = labels[which]))
                         dialog.dismiss()
+                        // Return focus to the size button so the panel stays open
+                        btnIconSize.post { btnIconSize.requestFocus() }
                     }
                     .setNegativeButton("Cancel", null)
                     .show()
