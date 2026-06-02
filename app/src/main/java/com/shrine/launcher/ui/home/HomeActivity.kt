@@ -178,10 +178,14 @@ class HomeActivity : AppCompatActivity() {
                 lastWallpaperUri = uriKey
                 stopSlideshow()
                 if (allUris.isEmpty()) {
-                    binding.root.setBackgroundColor(android.graphics.Color.parseColor("#0D0D0D"))
+                    com.bumptech.glide.Glide.with(this@HomeActivity).clear(binding.ivWallpaper)
+                    binding.ivWallpaper.setImageDrawable(null)
+                    binding.ivWallpaper.visibility = View.INVISIBLE
                 } else if (allUris.size == 1) {
+                    binding.ivWallpaper.visibility = View.VISIBLE
                     applyWallpaper(allUris[0])
                 } else {
+                    binding.ivWallpaper.visibility = View.VISIBLE
                     startSlideshow(allUris, prefs.wallpaperIntervalSeconds)
                 }
             }
@@ -409,12 +413,21 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun openPanel(initialApp: AppInfo? = null) {
+        val preFocus = currentFocus   // save focus before panel opens
         val wallpaperUri = vm.prefs.value?.wallpaperUri
             ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
         val dialog = SettingsPanelDialog(
             context           = this,
             wallpaperUri      = wallpaperUri,
-            onDismissed       = { activePanel = null; vm.loadAll(); binding.btnSettings.post { binding.btnSettings.requestFocus() } },
+            onDismissed       = {
+                activePanel = null
+                vm.loadAll()
+                if (preFocus != null && preFocus.isAttachedToWindow) {
+                    preFocus.post { preFocus.requestFocus() }
+                } else {
+                    binding.btnSettings.post { binding.btnSettings.requestFocus() }
+                }
+            },
             initialApp        = initialApp,
             onSettingsChanged = { vm.loadAll() }
         )

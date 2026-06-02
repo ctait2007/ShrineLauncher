@@ -150,7 +150,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }?.id ?: return
             else -> return
         }
-        prefRepo.addDismissedForChannel(rowId, content.id)
+        prefRepo.addDismissedForChannel(rowId, content.id, content.title)
         _continueWatching.value = _continueWatching.value?.filter { it.id != content.id }
         _watchNext.value        = _watchNext.value?.filter { it.id != content.id }
         _newForYou.value        = _newForYou.value?.filter { it.id != content.id }

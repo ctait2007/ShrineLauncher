@@ -269,21 +269,27 @@ class SettingsPanelDialog(
         }
         ivArrow.visibility = if (showArrow) View.VISIBLE else View.GONE
 
-        applyFocus(v, tvLabel)
+        applyFocus(v, tvLabel, labelColor)
         onClick?.let { v.setOnClickListener { it() } }
         body.addView(v)
         return v
     }
 
-    /** Toggle row: label on left, ON/OFF pill on right. */
-    fun addToggle(label: String, checked: Boolean, onChange: (Boolean) -> Unit): View {
+    /** Toggle row with optional icon: label on left, ON/OFF pill on right. */
+    fun addToggle(label: String, iconRes: Int = 0, checked: Boolean, onChange: (Boolean) -> Unit): View {
         val v       = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
         val tvLabel = v.findViewById<TextView>(R.id.tvEntryLabel)
         val ivIcon  = v.findViewById<ImageView>(R.id.ivEntryIcon)
         val ivArrow = v.findViewById<ImageView>(R.id.ivEntryArrow)
         tvLabel.text = label
-        ivIcon.visibility  = View.GONE
         ivArrow.visibility = View.GONE
+        if (iconRes != 0) {
+            ivIcon.setImageResource(iconRes)
+            ivIcon.setColorFilter(0xFFC06060.toInt())
+            ivIcon.visibility = View.VISIBLE
+        } else {
+            ivIcon.visibility = View.GONE
+        }
 
         var state = checked
         val pill  = TextView(context)
@@ -402,7 +408,7 @@ class SettingsPanelDialog(
         return container
     }
 
-    private fun applyFocus(v: View, label: TextView) {
+    private fun applyFocus(v: View, label: TextView, defaultColor: Int = 0xFFB0B0B0.toInt()) {
         v.setOnFocusChangeListener { view, hasFocus ->
             val bg = GradientDrawable().apply {
                 shape = GradientDrawable.RECTANGLE
@@ -412,7 +418,7 @@ class SettingsPanelDialog(
                 cornerRadius = 8 * dp
             }
             view.background = bg
-            label.setTextColor(if (hasFocus) 0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt())
+            label.setTextColor(if (hasFocus) 0xFFFFFFFF.toInt() else defaultColor)
         }
     }
 
@@ -440,9 +446,7 @@ class SettingsPanelDialog(
             })
         }
         addEntry("Install 3rd Party Apps", R.drawable.ic_install, showArrow = true) {
-            context.startActivity(Intent(context, AppInstallerActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            navigateTo("Install Apps") { buildInstallerPage() }
         }
     }
 
@@ -543,10 +547,10 @@ class SettingsPanelDialog(
         // Visible toggle
         addSectionHeader("OPTIONS")
         var isVisible = row.isVisible
-        addToggle("Visible", isVisible) { isVisible = it }
+        addToggle("Visible", R.drawable.ic_visibility_on, isVisible) { isVisible = it }
 
         var isPinned = row.isPinnedToTop
-        addToggle("Pinned to top", isPinned) { isPinned = it }
+        addToggle("Pinned to top", R.drawable.ic_pin, isPinned) { isPinned = it }
 
         // Size picker: inline dropdown that toggles open/closed
         val sizeLabels = arrayOf<String?>(null, "S", "M", "L", "XL")
@@ -790,17 +794,19 @@ class SettingsPanelDialog(
                 btnUp.setOnClickListener {
                     val idx = manageOrder.indexOf(app.packageName)
                     if (idx > 0) {
+                        val otherPkg = manageOrder[idx - 1]
                         manageOrder.removeAt(idx); manageOrder.add(idx - 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageOrder.filter { it in manageAllowed }.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "up")
+                        swapManageRows(app.packageName, otherPkg, pkg1MovedUp = true)
                     }
                 }
                 btnDown.setOnClickListener {
                     val idx = manageOrder.indexOf(app.packageName)
                     if (idx in 0 until manageOrder.size - 1) {
+                        val otherPkg = manageOrder[idx + 1]
                         manageOrder.removeAt(idx); manageOrder.add(idx + 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageOrder.filter { it in manageAllowed }.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "down")
+                        swapManageRows(app.packageName, otherPkg, pkg1MovedUp = false)
                     }
                 }
                 applyButtonFocus(btnUp)
@@ -818,6 +824,31 @@ class SettingsPanelDialog(
         v.setOnFocusChangeListener { view, hasFocus ->
             view.setBackgroundColor(if (hasFocus) 0x33FFFFFF else 0x00000000)
         }
+    }
+
+    /**
+     * Swap two manage-app row views in body without rebuilding the list.
+     * pkg1 is the app that moved; after swap, its btnMoveUp/Down gets focus.
+     */
+    private fun swapManageRows(pkg1: String, pkg2: String, pkg1MovedUp: Boolean) {
+        var view1: View? = null; var idx1 = -1
+        var view2: View? = null; var idx2 = -1
+        for (i in 0 until body.childCount) {
+            val child = body.getChildAt(i)
+            when (child.tag) {
+                pkg1 -> { view1 = child; idx1 = i }
+                pkg2 -> { view2 = child; idx2 = i }
+            }
+        }
+        if (view1 == null || view2 == null || idx1 == -1 || idx2 == -1) return
+        val lo = minOf(idx1, idx2); val hi = maxOf(idx1, idx2)
+        val loView = if (idx1 < idx2) view1 else view2
+        val hiView = if (idx1 < idx2) view2 else view1
+        body.removeViewAt(hi); body.removeViewAt(lo)
+        body.addView(hiView, lo); body.addView(loView, hi)
+        // Restore focus on the moved app's button
+        val btnId = if (pkg1MovedUp) R.id.btnMoveUp else R.id.btnMoveDown
+        view1.findViewById<View>(btnId)?.takeIf { it.visibility == View.VISIBLE }?.requestFocus()
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -943,10 +974,10 @@ class SettingsPanelDialog(
 
         addSectionHeader("OPTIONS")
         var isVisible = row.isVisible
-        addToggle("Visible", isVisible) { isVisible = it }
+        addToggle("Visible", R.drawable.ic_visibility_on, isVisible) { isVisible = it }
 
         var isPinned = row.isPinnedToTop
-        addToggle("Pinned to top", isPinned) { isPinned = it }
+        addToggle("Pinned to top", R.drawable.ic_pin, isPinned) { isPinned = it }
 
         // Inline size dropdown (same pattern as category editor)
         val chSizeLabels = arrayOf<String?>(null, "S", "M", "L", "XL")
@@ -986,13 +1017,12 @@ class SettingsPanelDialog(
         }
 
         // Hidden items
-        val dismissed = prefRepo.getDismissedForChannel(row.id).toList()
+        val dismissed = prefRepo.getDismissedWithTitles(row.id)
         if (dismissed.isNotEmpty()) {
             addSectionHeader("HIDDEN ITEMS — tap to restore")
-            dismissed.forEach { contentId ->
-                addEntry(contentId, labelColor = 0xFF888888.toInt()) {
+            dismissed.forEach { (contentId, contentTitle) ->
+                addEntry(contentTitle, labelColor = 0xFF888888.toInt()) {
                     prefRepo.restoreDismissedForChannel(row.id, contentId)
-                    // Rebuild this page
                     rawShowPage(row.title); buildChannelEditor(row)
                 }
             }
@@ -1160,7 +1190,7 @@ class SettingsPanelDialog(
     private fun buildGeneral() {
         val prefs = prefRepo.loadPrefs()
 
-        addToggle("Enable Channels", prefs.channelsEnabled) { checked ->
+        addToggle("Enable Channels", checked = prefs.channelsEnabled) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked)); notifyChanged()
         }
 
@@ -1227,19 +1257,19 @@ class SettingsPanelDialog(
     // ═══════════════════════════════════════════════════════════════════════════
 
     private fun buildAppearanceHub() {
-        addEntry("Categories / Channels", showArrow = true) {
+        addEntry("Categories / Channels", R.drawable.ic_channel, showArrow = true) {
             navigateTo("Categories / Channels") { buildCategoryAppearance() }
         }
-        addEntry("Cards", showArrow = true) {
+        addEntry("Cards", R.drawable.ic_grid, showArrow = true) {
             navigateTo("Cards") { buildCardAppearance() }
         }
-        addEntry("Wallpaper", showArrow = true) {
+        addEntry("Wallpaper", R.drawable.ic_image, showArrow = true) {
             navigateTo("Wallpaper") { buildWallpaperPage() }
         }
-        addEntry("Status Bar", showArrow = true) {
+        addEntry("Status Bar", R.drawable.ic_status_bar, showArrow = true) {
             navigateTo("Status Bar") { buildStatusBar() }
         }
-        addEntry("Idle Mode", showArrow = true) {
+        addEntry("Idle Mode", R.drawable.ic_sleep, showArrow = true) {
             navigateTo("Idle Mode") { buildIdleMode() }
         }
     }
@@ -1253,7 +1283,7 @@ class SettingsPanelDialog(
         val hasSingle   = !p.wallpaperUri.isNullOrBlank()
         val hasSlideshow = p.wallpaperUris.isNotEmpty()
 
-        addToggle("Slideshow mode", p.wallpaperSlideshow) { checked ->
+        addToggle("Slideshow mode", checked = p.wallpaperSlideshow) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(wallpaperSlideshow = checked)); notifyChanged()
         }
 
@@ -1320,10 +1350,10 @@ class SettingsPanelDialog(
     private fun buildCategoryAppearance() {
         val p = prefRepo.loadPrefs()
 
-        addToggle("Show category title", p.showCategoryTitle) { checked ->
+        addToggle("Show category title", R.drawable.ic_visibility_on, p.showCategoryTitle) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(showCategoryTitle = checked)); notifyChanged()
         }
-        addToggle("Show progress bar", p.progressBarEnabled) { checked ->
+        addToggle("Show progress bar", checked = p.progressBarEnabled) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(progressBarEnabled = checked)); notifyChanged()
         }
         addSectionHeader("LAYOUT")
@@ -1345,10 +1375,10 @@ class SettingsPanelDialog(
     private fun buildCardAppearance() {
         val p = prefRepo.loadPrefs()
 
-        addToggle("Show app title", p.showAppTitle) { checked ->
+        addToggle("Show app title", R.drawable.ic_visibility_on, p.showAppTitle) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(showAppTitle = checked)); notifyChanged()
         }
-        addToggle("Banner mode", p.globalCardDisplayMode == CardDisplayMode.BANNER) { checked ->
+        addToggle("Banner mode", checked = p.globalCardDisplayMode == CardDisplayMode.BANNER) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(
                 globalCardDisplayMode = if (checked) CardDisplayMode.BANNER else CardDisplayMode.ICON))
         }
@@ -1417,12 +1447,12 @@ class SettingsPanelDialog(
 
     private fun buildStatusBar() {
         val p = prefRepo.loadPrefs()
-        addToggle("Show Wi-Fi button", p.showWifiButton) { c ->
+        addToggle("Show Wi-Fi button", R.drawable.ic_wifi, p.showWifiButton) { c ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(showWifiButton = c)); notifyChanged()
         }
-        addToggle("Show clock", p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
-        addToggle("Show date",  p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
-        addToggle("24-hour clock", p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
+        addToggle("Show clock", R.drawable.ic_visibility_on, p.clockEnabled) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockEnabled = c)); notifyChanged() }
+        addToggle("Show date",  R.drawable.ic_visibility_on, p.dateEnabled)  { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(dateEnabled  = c)); notifyChanged() }
+        addToggle("24-hour clock", checked = p.clockFormat24h) { c -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(clockFormat24h = c)); notifyChanged() }
         // Status bar size: deferred — notifyChanged() fires on back press, not per-tick
         addSlider("Status bar size", p.statusBarIconSizePercent, 50, 150, displayFn = { "$it%" }) { v ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(statusBarIconSizePercent = v))
@@ -1436,7 +1466,7 @@ class SettingsPanelDialog(
 
     private fun buildIdleMode() {
         val p = prefRepo.loadPrefs()
-        addToggle("Enable idle mode", p.idleModeEnabled) { c ->
+        addToggle("Enable idle mode", R.drawable.ic_sleep, p.idleModeEnabled) { c ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleModeEnabled = c)); notifyChanged()
         }
         addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, step = 30, displayFn = { s ->
@@ -1497,6 +1527,108 @@ class SettingsPanelDialog(
                     dismiss()
                 }
                 .setNegativeButton("Cancel", null).show()
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAGE: INLINE INSTALLER
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private fun buildInstallerPage() {
+        addSectionHeader("INSTALL FROM URL")
+
+        val etUrl = EditText(context).apply {
+            hint = "https://example.com/app.apk"
+            setTextColor(0xFFFFFFFF.toInt())
+            setHintTextColor(0xFF555555.toInt())
+            textSize = 13f
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(0x33FFFFFF)
+                cornerRadius = 6 * dp
+            }
+            val p = (10 * dp).toInt()
+            setPadding(p, p / 2, p, p / 2)
+        }
+        val etLp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        etLp.setMargins((16 * dp).toInt(), (4 * dp).toInt(), (16 * dp).toInt(), (8 * dp).toInt())
+        etUrl.layoutParams = etLp
+        body.addView(etUrl)
+
+        val tvStatus = TextView(context).apply {
+            setTextColor(0xFF888888.toInt())
+            textSize = 11f
+            setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (4 * dp).toInt())
+        }
+        body.addView(tvStatus)
+
+        addEntry("Install from URL", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+            val url = etUrl.text.toString().trim()
+            if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                tvStatus.text = "Enter a valid http(s) URL"
+                return@addEntry
+            }
+            tvStatus.text = "Downloading…"
+            pageJob = scope.launch {
+                val apkFile = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val dest = java.io.File(context.cacheDir, "panel_install.apk")
+                        val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                        conn.instanceFollowRedirects = true; conn.connect()
+                        val total = conn.contentLength; var done = 0
+                        conn.inputStream.use { input ->
+                            java.io.FileOutputStream(dest).use { out ->
+                                val buf = ByteArray(8192); var n: Int
+                                while (input.read(buf).also { n = it } != -1) {
+                                    out.write(buf, 0, n); done += n
+                                    if (total > 0) {
+                                        val pct = done * 100 / total
+                                        withContext(kotlinx.coroutines.Dispatchers.Main) { tvStatus.text = "Downloading… $pct%" }
+                                    }
+                                }
+                            }
+                        }
+                        conn.disconnect(); dest
+                    } catch (e: Exception) { null }
+                }
+                if (apkFile == null) {
+                    tvStatus.text = "Download failed — check the URL"; return@launch
+                }
+                tvStatus.text = "Installing…"
+                // Try silent install first
+                val hasPerm = context.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") ==
+                    android.content.pm.PackageManager.PERMISSION_GRANTED
+                if (hasPerm) {
+                    val ok = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        try {
+                            val p = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", apkFile.absolutePath))
+                            val out = p.inputStream.bufferedReader().readText()
+                            p.waitFor() == 0 || out.contains("Success", ignoreCase = true)
+                        } catch (e: Exception) { false }
+                    }
+                    if (ok) { tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch }
+                }
+                // Fallback: system installer
+                tvStatus.text = "Opening system installer…"
+                try {
+                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                        context, "${context.packageName}.fileprovider", apkFile)
+                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                        setDataAndType(fileUri, "application/vnd.android.package-archive")
+                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                } catch (e: Exception) { tvStatus.text = "Install failed: ${e.message}" }
+            }
+        }
+
+        addSeparator()
+        addSectionHeader("PICK FROM DEVICE")
+        addEntry("Browse for APK file", R.drawable.ic_install, showArrow = true) {
+            context.startActivity(android.content.Intent(context, AppInstallerActivity::class.java).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            })
         }
     }
 }

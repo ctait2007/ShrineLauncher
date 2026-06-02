@@ -128,20 +128,29 @@ class PreferencesRepository(context: Context) {
 
     // ── Per-channel dismissed content (v0.10.0+) ─────────────────────────────
 
-    fun addDismissedForChannel(channelId: String, contentId: String) {
+    fun addDismissedForChannel(channelId: String, contentId: String, contentTitle: String = contentId) {
         val key = dismissedKey(channelId)
         val current = prefs.getStringSet(key, emptySet())!!.toMutableSet()
-        current.add(contentId)
+        // Remove any existing entry for this contentId before re-adding with title
+        current.removeAll { it == contentId || it.startsWith("$contentId|||") }
+        current.add("$contentId|||$contentTitle")
         prefs.edit().putStringSet(key, current).apply()
     }
 
     fun getDismissedForChannel(channelId: String): Set<String> =
         prefs.getStringSet(dismissedKey(channelId), emptySet()) ?: emptySet()
 
+    /** Returns (contentId, displayTitle) pairs for the dismissed items. */
+    fun getDismissedWithTitles(channelId: String): List<Pair<String, String>> =
+        getDismissedForChannel(channelId).map { entry ->
+            val parts = entry.split("|||", limit = 2)
+            if (parts.size == 2) parts[0] to parts[1] else entry to entry
+        }
+
     fun restoreDismissedForChannel(channelId: String, contentId: String) {
         val key = dismissedKey(channelId)
         val current = prefs.getStringSet(key, emptySet())!!.toMutableSet()
-        current.remove(contentId)
+        current.removeAll { it == contentId || it.startsWith("$contentId|||") }
         prefs.edit().putStringSet(key, current).apply()
     }
 
