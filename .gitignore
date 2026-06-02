@@ -15,3 +15,9 @@ local.properties
 # OS
 .DS_Store
 **/.DS_Store
+
+# Generated assets (produced by .github/assets_setup.py — never commit)
+app/src/main/res/mipmap-*/
+app/src/main/res/drawable-*/
+app/src/main/res/drawable/ic_launcher_background.xml
+app/src/main/res/drawable/ic_launcher_foreground.xml
