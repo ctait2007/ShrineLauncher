@@ -538,29 +538,37 @@ class HomeActivity : AppCompatActivity() {
     private fun installApkFromUri(uri: Uri) {
         lifecycleScope.launch {
             Toast.makeText(this@HomeActivity, "Copying APK…", Toast.LENGTH_SHORT).show()
-            val dest = withContext(Dispatchers.IO) {
+            val adb = com.shrine.launcher.adb.AdbManager.getInstance(this@HomeActivity)
+            val tmpPath = "/data/local/tmp/shrine_browse_install.apk"
+
+            // Shell creates a world-writable file so the app can write to /data/local/tmp
+            val useTmp = adb.isConnected() &&
+                adb.executeShell("touch $tmpPath && chmod 666 $tmpPath").exitCode == 0
+
+            val dest = java.io.File(if (useTmp) tmpPath else cacheDir.path + "/shrine_browse_install.apk")
+
+            val copied = withContext(Dispatchers.IO) {
                 try {
-                    val f = java.io.File("/data/local/tmp", "shrine_browse_install.apk")
                     contentResolver.openInputStream(uri)?.use { input ->
-                        java.io.FileOutputStream(f).use { out -> input.copyTo(out) }
+                        java.io.FileOutputStream(dest).use { out -> input.copyTo(out) }
                     }
-                    f
-                } catch (e: Exception) { null }
+                    true
+                } catch (e: Exception) { false }
             }
-            if (dest == null) {
+
+            if (!copied) {
                 Toast.makeText(this@HomeActivity, "Failed to copy APK", Toast.LENGTH_SHORT).show()
                 return@launch
             }
-            val adb = com.shrine.launcher.adb.AdbManager.getInstance(this@HomeActivity)
-            if (adb.isConnected()) {
-                val result = adb.executeShell("pm install -r ${dest.absolutePath}")
+
+            if (useTmp) {
+                val result = adb.executeShell("pm install -r $tmpPath")
+                adb.executeShell("rm -f $tmpPath")
                 Toast.makeText(this@HomeActivity,
                     if (result.exitCode == 0) "APK installed successfully"
                     else "Install failed: ${result.output}",
                     Toast.LENGTH_LONG).show()
-                dest.delete()
             } else {
-                // Fallback: system installer UI
                 try {
                     val fileUri = androidx.core.content.FileProvider.getUriForFile(
                         this@HomeActivity, "${packageName}.fileprovider", dest)

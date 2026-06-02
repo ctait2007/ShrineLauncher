@@ -1651,10 +1651,19 @@ class SettingsPanelDialog(
             }
             tvStatus.text = "Downloading…"
             pageJob = scope.launch {
-                // Download to /data/local/tmp (accessible by pm install)
-                val apkFile = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val adb = AdbManager.getInstance(context)
+                val tmpPath = "/data/local/tmp/shrine_install.apk"
+
+                // If shell is connected, have it create a world-writable file in /data/local/tmp
+                // so the app process can write to it (app lacks directory write on /data/local/tmp)
+                val useTmp = adb.isConnected() &&
+                    adb.executeShell("touch $tmpPath && chmod 666 $tmpPath").exitCode == 0
+
+                val dest = if (useTmp) java.io.File(tmpPath)
+                           else java.io.File(context.cacheDir, "shrine_install.apk")
+
+                val downloaded = withContext(kotlinx.coroutines.Dispatchers.IO) {
                     try {
-                        val dest = java.io.File("/data/local/tmp", "shrine_install.apk")
                         val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
                         conn.instanceFollowRedirects = true; conn.connect()
                         val total = conn.contentLength; var done = 0
@@ -1670,45 +1679,29 @@ class SettingsPanelDialog(
                                 }
                             }
                         }
-                        conn.disconnect(); dest
-                    } catch (e: Exception) {
-                        // Fallback to cacheDir if /data/local/tmp is not writable
-                        try {
-                            val dest = java.io.File(context.cacheDir, "shrine_install.apk")
-                            val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                            conn.instanceFollowRedirects = true; conn.connect()
-                            conn.inputStream.use { input ->
-                                java.io.FileOutputStream(dest).use { out ->
-                                    val buf = ByteArray(8192); var n: Int
-                                    while (input.read(buf).also { n = it } != -1) out.write(buf, 0, n)
-                                }
-                            }
-                            conn.disconnect(); dest
-                        } catch (e2: Exception) { null }
-                    }
+                        conn.disconnect(); true
+                    } catch (e: Exception) { false }
                 }
-                if (apkFile == null) {
-                    tvStatus.text = "Download failed — check the URL"; return@launch
-                }
+                if (!downloaded) { tvStatus.text = "Download failed — check the URL"; return@launch }
+
                 tvStatus.text = "Installing…"
-                val adb = AdbManager.getInstance(context)
-                val shellResult = if (adb.isConnected()) {
-                    adb.executeShell("pm install -r ${apkFile.absolutePath}")
-                } else null
-                if (shellResult != null && shellResult.exitCode == 0) {
-                    tvStatus.text = "✓ Installed successfully"; apkFile.delete(); return@launch
+                if (useTmp) {
+                    val result = adb.executeShell("pm install -r $tmpPath")
+                    adb.executeShell("rm -f $tmpPath")
+                    tvStatus.text = if (result.exitCode == 0) "✓ Installed successfully"
+                                    else "Install failed: ${result.output}"
+                } else {
+                    tvStatus.text = "Opening system installer…"
+                    try {
+                        val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                            context, "${context.packageName}.fileprovider", dest)
+                        context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
+                            setDataAndType(fileUri, "application/vnd.android.package-archive")
+                            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                        })
+                    } catch (e: Exception) { tvStatus.text = "Install failed: ${e.message}" }
                 }
-                // Fallback: system installer UI
-                tvStatus.text = "Opening system installer…"
-                try {
-                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
-                        context, "${context.packageName}.fileprovider", apkFile)
-                    context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW).apply {
-                        setDataAndType(fileUri, "application/vnd.android.package-archive")
-                        addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                            android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    })
-                } catch (e: Exception) { tvStatus.text = "Install failed: ${e.message}" }
             }
         }
 
