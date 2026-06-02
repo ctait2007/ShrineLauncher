@@ -1177,17 +1177,20 @@ class SettingsPanelDialog(
         }
 
         addEntry("Force Stop", R.drawable.ic_install) {
-            try {
-                val proc = Runtime.getRuntime().exec(arrayOf("am", "force-stop", app.packageName))
-                val success = proc.waitFor() == 0
-                Toast.makeText(context,
-                    if (success) "${app.label} stopped"
-                    else "Force stop failed — run: adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES",
-                    if (success) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
-            } catch (e: Exception) {
-                Toast.makeText(context, "Force stop failed: ${e.message}", Toast.LENGTH_SHORT).show()
+            val adb = AdbManager.getInstance(context)
+            if (adb.state != AdbManager.AdbState.CONNECTED) {
+                Toast.makeText(context, "Connect ADB in Settings → ADB Shell to use Force Stop", Toast.LENGTH_LONG).show()
+                dismiss()
+                return@addEntry
             }
-            dismiss()
+            scope.launch {
+                val result = adb.executeShell("pm force-stop ${app.packageName}")
+                Toast.makeText(context,
+                    if (result.exitCode == 0) "${app.label} stopped"
+                    else "Force stop failed: ${result.output}",
+                    if (result.exitCode == 0) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
+                dismiss()
+            }
         }
 
         addEntry("Uninstall", labelColor = 0xFFCF6679.toInt()) {

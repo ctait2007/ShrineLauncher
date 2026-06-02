@@ -74,7 +74,7 @@ class AdbManager private constructor(context: Context) : AbsAdbConnectionManager
             keyFile.writeBytes(rsaPrivateKey.encoded)
             certFile.writeBytes(rsaCertificate.encoded)
         }
-        setApi(Build.VERSION.SDK_INT)
+        setApi(28) // Force legacy TCP ADB (non-TLS) — port 5555 doesn't use TLS regardless of host API level
         setTimeout(10, TimeUnit.SECONDS)
     }
 

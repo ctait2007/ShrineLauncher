@@ -15,7 +15,13 @@ import android.widget.ImageView
 import android.widget.Toast
 import android.widget.TextView
 import com.shrine.launcher.R
+import com.shrine.launcher.adb.AdbManager
 import com.shrine.launcher.data.model.AppInfo
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 class AppContextMenuDialog(
     context: Context,
@@ -24,6 +30,8 @@ class AppContextMenuDialog(
     private val onFavouriteToggle: () -> Unit,
     private val onLaunch: () -> Unit
 ) : Dialog(context) {
+
+    private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -52,6 +60,8 @@ class AppContextMenuDialog(
             btn.setOnFocusChangeListener { v, hasFocus -> applyMenuFocus(v as TextView, hasFocus) }
         }
 
+        setOnDismissListener { scope.cancel() }
+
         btnOpen.setOnClickListener      { onLaunch(); dismiss() }
         btnFav.setOnClickListener       { onFavouriteToggle(); dismiss() }
 
@@ -65,10 +75,7 @@ class AppContextMenuDialog(
             dismiss()
         }
 
-        btnStop.setOnClickListener {
-            forceStopApp(app.packageName)
-            dismiss()
-        }
+        btnStop.setOnClickListener { forceStopApp(app.packageName) }
 
         btnUninstall.setOnClickListener {
             context.startActivity(
@@ -84,50 +91,20 @@ class AppContextMenuDialog(
     }
 
     private fun forceStopApp(packageName: String) {
-        val hasPermission = context.checkSelfPermission(
-            "android.permission.FORCE_STOP_PACKAGES"
-        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
-
-        if (!hasPermission) {
-            android.app.AlertDialog.Builder(context)
-                .setTitle("Permission Required")
-                .setMessage(
-                    "Force Stop requires a one-time ADB setup.\n\n" +
-                    "adb shell pm grant com.shrine.launcher android.permission.FORCE_STOP_PACKAGES\n\n" +
-                    "Then try again. Opening App Info instead."
-                )
-                .setPositiveButton("Open App Info") { _, _ ->
-                    context.startActivity(
-                        Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                            data = Uri.fromParts("package", packageName, null)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        }
-                    )
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+        val adb = AdbManager.getInstance(context)
+        if (adb.state != AdbManager.AdbState.CONNECTED) {
+            Toast.makeText(context, "Connect ADB in Settings → ADB Shell to use Force Stop", Toast.LENGTH_LONG).show()
+            dismiss()
             return
         }
-
-        try {
-            val am = context.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
-            val method = android.app.ActivityManager::class.java
-                .getDeclaredMethod("forceStopPackage", String::class.java)
-            method.isAccessible = true
-            method.invoke(am, packageName)
-            Toast.makeText(context, "${app.label} stopped", Toast.LENGTH_SHORT).show()
-            return
-        } catch (e: Exception) {
-            android.util.Log.w("AppContextMenu", "forceStopPackage reflection failed: ${e.message}")
+        scope.launch {
+            val result = adb.executeShell("pm force-stop $packageName")
+            Toast.makeText(context,
+                if (result.exitCode == 0) "${app.label} stopped"
+                else "Force stop failed: ${result.output}",
+                if (result.exitCode == 0) Toast.LENGTH_SHORT else Toast.LENGTH_LONG).show()
+            dismiss()
         }
-
-        Toast.makeText(context, "Force stop failed — try App Info", Toast.LENGTH_SHORT).show()
-        context.startActivity(
-            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-        )
     }
 
     private fun applyMenuFocus(v: TextView, hasFocus: Boolean) {
