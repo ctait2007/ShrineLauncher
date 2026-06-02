@@ -1,0 +1,38 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.shrine.launcher.app-mergeDebugResources-44:/values-v22/values-v22.xml",
+            "map": [
+                {
+                    "source": "/Users/camerontait/.gradle/caches/transforms-3/32e02fa1dd3a41d98a77790ecf6b4555/transformed/leanback-1.2.0-alpha02/res/values-v22/values-v22.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,107",
+                        "endColumns": "51,53",
+                        "endOffsets": "102,156"
+                    }
+                },
+                {
+                    "source": "/Users/camerontait/.gradle/caches/transforms-3/bd4b3a0f9ce03c46acf898a6cf446411/transformed/appcompat-1.6.1/res/values-v22/values-v22.xml",
+                    "from": {
+                        "startLines": "2,3,4,9",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "55,130,217,487",
+                        "endLines": "2,3,8,13",
+                        "endColumns": "74,86,12,12",
+                        "endOffsets": "125,212,482,764"
+                    },
+                    "to": {
+                        "startLines": "4,5,6,11",
+                        "startColumns": "4,4,4,4",
+                        "startOffsets": "161,236,323,593",
+                        "endLines": "4,5,10,15",
+                        "endColumns": "74,86,12,12",
+                        "endOffsets": "231,318,588,870"
+                    }
+                }
+            ]
+        }
+    ]
+}

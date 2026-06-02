@@ -1,0 +1,322 @@
+[
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-hdpi_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-hdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_selector_focusable_item.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/selector_focusable_item.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_channel_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_channel_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/xml_file_provider_paths.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/xml/file_provider_paths.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xxhdpi_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-hdpi_ic_launcher.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-hdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_app_banner.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_app_banner.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_card_placeholder.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_card_placeholder.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_activity_home.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/activity_home.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_close.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_close.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_continue_watching_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_continue_watching_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_dialog.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_dialog.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xxxhdpi_ic_launcher_round.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xxxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_banner.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_banner.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_picker_app.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_picker_app.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-mdpi_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-mdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_cw_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_cw_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_visibility_on.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_visibility_on.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_btn_outline.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_btn_outline.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_launcher_background.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_launcher_background.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/drawable-xxhdpi_banner.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/drawable-xxhdpi/banner.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xhdpi_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-hdpi_ic_launcher_round.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-hdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_btn_secondary.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_btn_secondary.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_row_app_toggle.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_row_app_toggle.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xhdpi_ic_launcher.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xxxhdpi_ic_launcher.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xxxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_dialog_row_settings.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/dialog_row_settings.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_app_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_app_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-anydpi-v26_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-anydpi-v26/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_kind_badge_category.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_kind_badge_category.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xxhdpi_ic_launcher.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xxhdpi/ic_launcher.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_row_app_reorder.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_row_app_reorder.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_activity_app_picker.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/activity_app_picker.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-mdpi_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-mdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xhdpi_ic_launcher_round.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_visibility_off.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_visibility_off.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_row_empty.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_row_empty.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_kind_badge_channel.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_kind_badge_channel.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_settings.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_settings.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_drag_handle.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_drag_handle.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_banner.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/banner.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_dialog_app_context_menu.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/dialog_app_context_menu.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_edit.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_edit.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_focused_item.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_focused_item.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_app_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_app_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xhdpi_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_selector_focus_ring.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/selector_focus_ring.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-hdpi_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-hdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xxhdpi_ic_launcher_round.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xxhdpi/ic_launcher_round.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_row_app_edit.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_row_app_edit.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_delete.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_delete.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_activity_settings.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_row.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_row.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_input.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_input.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xxxhdpi_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xxxhdpi/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_unfocused_item.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_unfocused_item.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/drawable-xhdpi_banner.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/drawable-xhdpi/banner.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_widget_continue_watching.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/widget_continue_watching.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_launcher_foreground.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_launcher_foreground.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_settings_widget.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_settings_widget.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-merged_res-46:/mipmap-xxhdpi_banner.png.flat",
+        "source": "com.shrine.launcher.app-main-48:/mipmap-xxhdpi/banner.png"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_activity_row_editor.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/activity_row_editor.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_remove_btn.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_remove_btn.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_grid.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_grid.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_dialog_content_context_menu.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/dialog_content_context_menu.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_btn_primary.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_btn_primary.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_format_size.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_format_size.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_size_btn_selected.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_size_btn_selected.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_item_settings_row.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/item_settings_row.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-anydpi-v26_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-anydpi-v26/ic_launcher.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_tune.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_tune.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_ic_arrow_back.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/ic_arrow_back.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_selector_settings_item.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/selector_settings_item.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_selector_size_btn.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/selector_size_btn.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/layout_activity_app_installer.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/layout/activity_app_installer.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_banner_card.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_banner_card.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/drawable_bg_icon_btn.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/drawable/bg_icon_btn.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xxxhdpi_ic_launcher_round.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xxxhdpi/ic_launcher_round.xml"
+    },
+    {
+        "merged": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-merged_res-46:/mipmap-xxhdpi_ic_launcher.xml.flat",
+        "source": "/Users/camerontait/.gradle/daemon/8.4/com.shrine.launcher.app-main-48:/mipmap-xxhdpi/ic_launcher.xml"
+    }
+]

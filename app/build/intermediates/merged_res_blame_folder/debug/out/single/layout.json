@@ -1,0 +1,86 @@
+[
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_app_card.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_app_card.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/dialog_app_context_menu.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/dialog_app_context_menu.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/activity_app_installer.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/activity_app_installer.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_row_app_toggle.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_row_app_toggle.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_channel_card.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_channel_card.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_row.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_row.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/activity_app_picker.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/activity_app_picker.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/activity_row_editor.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/activity_row_editor.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/widget_continue_watching.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/widget_continue_watching.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/activity_home.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/activity_home.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_settings_row.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_settings_row.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/dialog_row_settings.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/dialog_row_settings.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/dialog_content_context_menu.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/dialog_content_context_menu.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_continue_watching_card.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_continue_watching_card.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_settings_widget.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_settings_widget.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_row_app_reorder.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_row_app_reorder.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_app_banner.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_app_banner.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/activity_settings.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_row_empty.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_row_empty.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_row_app_edit.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_row_app_edit.xml"
+    },
+    {
+        "merged": "com.shrine.launcher.app-mergeDebugResources-45:/layout/item_picker_app.xml",
+        "source": "com.shrine.launcher.app-main-48:/layout/item_picker_app.xml"
+    }
+]

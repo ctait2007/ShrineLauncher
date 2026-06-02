@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:clipChildren="false"
+    android:clipToPadding="false"
+    android:overScrollMode="never">
+
+    <LinearLayout
+        android:id="@+id/rowContent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:clipChildren="false"
+        android:clipToPadding="false">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="16dp"
+            android:layout_marginBottom="8dp">
+
+            <TextView
+                android:id="@+id/tvRowLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/text_primary"
+                android:textSize="13sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.05" />
+
+            <TextView
+                android:id="@+id/tvRowKind"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:textSize="9sp"
+                android:textColor="@color/text_primary"
+                android:textAllCaps="true"
+                android:letterSpacing="0.1"
+                android:background="@drawable/bg_kind_badge_category" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvApps"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingEnd="24dp"
+            android:clipToPadding="false"
+            android:overScrollMode="never"
+            android:descendantFocusability="afterDescendants" />
+
+        <LinearLayout
+            android:id="@+id/emptyState"
+            android:layout_width="match_parent"
+            android:layout_height="80dp"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="12dp"
+            android:visibility="gone"
+            android:alpha="0.45">
+
+            <TextView
+                android:id="@+id/tvEmptyMessage"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:fontFamily="sans-serif-light" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/sidePanel"
+        android:layout_width="136dp"
+        android:layout_height="match_parent"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:background="@android:color/transparent"
+        android:elevation="16dp"
+        android:translationX="-136dp"
+        android:visibility="invisible"
+        android:clipChildren="false"
+        android:layout_gravity="start">
+
+        <ImageButton
+            android:id="@+id/btnToggleDisplayMode"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_grid"
+            android:background="@drawable/selector_focusable_item"
+            android:tint="@color/text_primary"
+            android:contentDescription="Toggle icon/banner"
+            android:focusable="false"
+            android:padding="6dp"
+            android:layout_marginStart="8dp"
+            android:layout_marginEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btnIconSize"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_format_size"
+            android:background="@drawable/selector_focusable_item"
+            android:tint="@color/text_primary"
+            android:contentDescription="Icon size"
+            android:focusable="false"
+            android:padding="6dp"
+            android:layout_marginEnd="4dp" />
+
+        <ImageButton
+            android:id="@+id/btnRowSettings"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_tune"
+            android:background="@drawable/selector_focusable_item"
+            android:tint="@color/text_primary"
+            android:contentDescription="Row settings"
+            android:focusable="false"
+            android:padding="6dp" />
+    </LinearLayout>
+
+</FrameLayout>

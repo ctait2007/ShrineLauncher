@@ -1,0 +1,28 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.shrine.launcher.app-mergeDebugResources-44:/values-v19/values-v19.xml",
+            "map": [
+                {
+                    "source": "/Users/camerontait/.gradle/caches/transforms-3/32e02fa1dd3a41d98a77790ecf6b4555/transformed/leanback-1.2.0-alpha02/res/values-v19/values-v19.xml",
+                    "from": {
+                        "startLines": "2,16",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,917",
+                        "endLines": "15,24",
+                        "endColumns": "12,12",
+                        "endOffsets": "912,1521"
+                    },
+                    "to": {
+                        "startLines": "2,16",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,871",
+                        "endLines": "15,24",
+                        "endColumns": "12,12",
+                        "endOffsets": "866,1475"
+                    }
+                }
+            ]
+        }
+    ]
+}
