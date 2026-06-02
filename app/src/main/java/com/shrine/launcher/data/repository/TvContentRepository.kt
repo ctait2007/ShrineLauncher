@@ -66,7 +66,8 @@ class TvContentRepository(private val context: Context) {
         val artworkUri: String?,
         val progressMs: Long,
         val durationMs: Long,
-        val watchNextType: Int
+        val watchNextType: Int,
+        val channelSourceId: String? = null
     )
 
     // ── Combined query ────────────────────────────────────────────────────────
@@ -79,15 +80,24 @@ class TvContentRepository(private val context: Context) {
                 "type=${row.watchNextType} | progressMs=${row.progressMs} | durationMs=${row.durationMs}")
         }
 
-        // Continue Watching is the priority bucket: it claims everything with progress,
-        // everything typed CONTINUE, unknowns (-1), AND any NEXT-typed item that also
-        // has progress (Nuvio publishes in-progress content as WATCH_NEXT_TYPE_NEXT).
-        // Watch Next gets only what's left: NEXT-typed items with zero progress.
+        // Build a set of package names whose published channels are named "Continue Watching"
+        // (or contain "continue"). This is the most reliable routing signal — it is the
+        // app's own ground-truth declaration of which content is in-progress, independent
+        // of watchNextType codes and progressMs values which Fire TV apps set inconsistently.
+        val continueWatchingPackages = buildContinueWatchingPackages()
+        Log.d(TAG, "continueWatchingPackages: $continueWatchingPackages")
+
+        // Continue Watching is the priority bucket: claims items with progress, CONTINUE
+        // type, unknowns (-1), items from apps whose channel is named "Continue Watching",
+        // and items whose channelSourceId contains "continue".
+        // Watch Next gets only what's left.
         val continueWatchingIds = watchNext
             .filter { row ->
                 row.progressMs > 0L
                     || row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
                     || row.watchNextType == -1
+                    || row.packageName in continueWatchingPackages
+                    || row.channelSourceId?.lowercase()?.contains("continue") == true
             }
             .map { it.id }
             .toSet()
@@ -177,18 +187,24 @@ class TvContentRepository(private val context: Context) {
                             val intentUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_INTENT_URI)
                             val posterUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI)
                             val thumbUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_THUMBNAIL_URI)
-                            val watchNextType = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
+                            val watchNextType  = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
+                            val channelSourceId = program.channelSourceId
+
+                            Log.d(TAG, "WN row: pkg=$pkg title=$title " +
+                                "type=$watchNextType progressMs=$progressMs " +
+                                "channelSourceId=$channelSourceId")
 
                             results.add(RawWatchNext(
-                                id           = id,
-                                title        = title,
-                                subtitle     = subtitle,
-                                packageName  = pkg,
-                                intentUri    = intentUri,
-                                artworkUri   = posterUri ?: thumbUri,
-                                progressMs   = progressMs,
-                                durationMs   = durationMs,
-                                watchNextType = watchNextType
+                                id              = id,
+                                title           = title,
+                                subtitle        = subtitle,
+                                packageName     = pkg,
+                                intentUri       = intentUri,
+                                artworkUri      = posterUri ?: thumbUri,
+                                progressMs      = progressMs,
+                                durationMs      = durationMs,
+                                watchNextType   = watchNextType,
+                                channelSourceId = channelSourceId
                             ))
                         } catch (e: Exception) {
                             Log.w(TAG, "Skipping malformed WatchNext row: ${e.message}")
@@ -344,6 +360,37 @@ class TvContentRepository(private val context: Context) {
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────
+
+    // ── Channel-name routing helper ───────────────────────────────────────────
+
+    /** Returns the set of package names that own a browsable channel whose display
+     *  name contains "continue" (case-insensitive), e.g. "Continue Watching". */
+    private fun buildContinueWatchingPackages(): Set<String> {
+        val packages = mutableSetOf<String>()
+        return try {
+            val c = cr.query(
+                TvContractCompat.Channels.CONTENT_URI,
+                arrayOf(
+                    TvContractCompat.Channels.COLUMN_PACKAGE_NAME,
+                    TvContractCompat.Channels.COLUMN_DISPLAY_NAME
+                ),
+                "${TvContractCompat.Channels.COLUMN_BROWSABLE} = 1",
+                null, null
+            ) ?: return packages
+            c.use {
+                while (it.moveToNext()) {
+                    val pkg  = it.safeString(TvContractCompat.Channels.COLUMN_PACKAGE_NAME) ?: continue
+                    val name = it.safeString(TvContractCompat.Channels.COLUMN_DISPLAY_NAME) ?: continue
+                    Log.d(TAG, "Channel: pkg=$pkg name=$name")
+                    if (name.lowercase().contains("continue")) packages += pkg
+                }
+            }
+            packages
+        } catch (e: Exception) {
+            Log.w(TAG, "buildContinueWatchingPackages failed: ${e.message}")
+            packages
+        }
+    }
 
     private val channelPkgCache  = mutableMapOf<Long, String>()
     private val channelNameCache = mutableMapOf<Long, String>()

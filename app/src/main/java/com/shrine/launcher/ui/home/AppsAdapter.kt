@@ -153,7 +153,9 @@ class AppsAdapter(
 
         private fun bindIcon(app: AppInfo) {
             ivIcon.setImageDrawable(app.icon)
-            ivIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
+            // FIT_CENTER scales up small icons to fill the card (CENTER_INSIDE only
+            // scales down, leaving visible background around undersized icons).
+            ivIcon.scaleType = ImageView.ScaleType.FIT_CENTER
         }
 
         private fun bindBanner(app: AppInfo, sizePx: Int, density: Float) {

@@ -202,6 +202,11 @@ class RowsAdapter(
             btnIconSize.requestLayout()
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
+            // Block icon/channel cards from receiving focus while panel is open.
+            // Translation is visual-only — layout bounds don't move — so without this,
+            // the focus traversal algorithm treats card positions as overlapping the
+            // panel buttons and D-pad navigation jumps unpredictably between them.
+            rvApps.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
             sidePanel.animate()
                 .translationX(0f)
                 .setDuration(150)
@@ -229,6 +234,10 @@ class RowsAdapter(
             // Reset channel-mode start margin on btnIconSize
             (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)?.marginStart = 0
             btnIconSize.requestLayout()
+
+            // Restore card focusability before requesting focus so the target view
+            // can actually accept it.
+            rvApps.descendantFocusability = ViewGroup.FOCUS_AFTER_DESCENDANTS
 
             // Restore focus SYNCHRONOUSLY before the animation starts so the layout
             // system never briefly assigns focus to an unintended view during the transition.
