@@ -121,13 +121,13 @@ class SettingsPanelDialog(
             setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
             setGravity(Gravity.END or Gravity.CENTER_VERTICAL)
             val dm = context.resources.displayMetrics
-            val w  = (dm.widthPixels  * 0.30f).toInt()
+            val w  = (dm.widthPixels  * 0.26f).toInt()
             val h  = (dm.heightPixels * 0.94f).toInt()
             setLayout(w, h)
             clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND)
-            // Slight margin from the right edge
+            // Gap between panel right edge and screen right edge
             val attrs = attributes
-            attrs.x = (6 * context.resources.displayMetrics.density).toInt()
+            attrs.x = (20 * context.resources.displayMetrics.density).toInt()
             attributes = attrs
         }
     }
@@ -665,33 +665,79 @@ class SettingsPanelDialog(
     // Live state for Manage Apps — persisted to prefs only on page exit
     private var manageAllowed = mutableListOf<String>()
 
-    private fun buildManageApps(row: LauncherRow) {
+    private fun buildManageApps(
+        row: LauncherRow,
+        focusPkg: String? = null,
+        focusTarget: String = "up"   // "up" | "down" | "pill"
+    ) {
         pageJob = scope.launch {
             val allApps = withContext(Dispatchers.IO) { appRepo.getAllApps() }
             if (!isActive) return@launch
 
-            // Shown first (in saved order), then hidden alphabetically
-            // Use manageAllowed as the working copy so toggles survive rebuilds
             if (manageAllowed.isEmpty() && row.apps.isNotEmpty()) {
                 manageAllowed = row.apps.toMutableList()
             }
 
-            val shownApps  = manageAllowed.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
-            // "pendingHidden" = was in row.apps but toggled off this session — stays in shown section
-            val pendingHiddenPkgs = row.apps.filter { it !in manageAllowed }
-            val pendingHidden = pendingHiddenPkgs.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            // Shown section: apps in their original row.apps order (so toggled-off apps
+            // stay at their original position). Newly added (not in row.apps) go at end.
+            val pendingOff = row.apps.filter { it !in manageAllowed }.toSet()
+            val originalShown = row.apps.mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
+            val newlyAdded    = manageAllowed.filter { it !in row.apps }
+                .mapNotNull { pkg -> allApps.find { it.packageName == pkg } }
             val hiddenApps = allApps
                 .filter { it.packageName !in row.apps && it.packageName !in manageAllowed }
                 .sortedBy { it.label.lowercase() }
 
             addSectionHeader("SHOWN")
-            renderManageSection(shownApps + pendingHidden, pendingHiddenPkgs.toSet(), row, true)
+            renderManageSection(originalShown + newlyAdded, pendingOff, row, true)
 
             addSectionHeader("HIDDEN")
             renderManageSection(hiddenApps, emptySet(), row, false)
 
-            focusFirstItem()
+            body.post {
+                if (focusPkg != null) {
+                    for (i in 0 until body.childCount) {
+                        val child = body.getChildAt(i)
+                        if (child.tag == focusPkg) {
+                            val btn: View? = when (focusTarget) {
+                                "down" -> child.findViewById(R.id.btnMoveDown)
+                                "pill" -> child.findViewById(R.id.tvManagePill)
+                                else   -> child.findViewById(R.id.btnMoveUp)
+                            }
+                            if (btn?.visibility == View.VISIBLE) { btn.requestFocus(); return@post }
+                            // Fell through (e.g. up on first item) — fall to default
+                            break
+                        }
+                    }
+                }
+                // Default: focus up arrow of first shown-and-on app
+                for (i in 0 until body.childCount) {
+                    val btn = body.getChildAt(i)?.findViewById<View>(R.id.btnMoveUp)
+                    if (btn?.visibility == View.VISIBLE) { btn.requestFocus(); return@post }
+                }
+            }
         }
+    }
+
+    private fun makePillSlider(isOn: Boolean, focused: Boolean = false): android.graphics.drawable.LayerDrawable {
+        val track = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            cornerRadius = 100f * dp
+            setColor(if (isOn) 0xFFE53935.toInt() else 0xFF444444.toInt())
+            if (focused) setStroke((2 * dp).toInt(), 0xFFFFFFFF.toInt())
+        }
+        val thumb = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(0xFFFFFFFF.toInt())
+        }
+        val layers = android.graphics.drawable.LayerDrawable(arrayOf(track, thumb))
+        val thumbDiam = (14 * dp).toInt()
+        val hPad = (4 * dp).toInt()
+        val vPad = ((22 * dp - thumbDiam) / 2).toInt()
+        val trackW = (40 * dp).toInt()
+        if (isOn) layers.setLayerInset(1, trackW - thumbDiam - hPad, vPad, hPad, vPad)
+        else       layers.setLayerInset(1, hPad, vPad, trackW - thumbDiam - hPad, vPad)
+        return layers
     }
 
     private fun renderManageSection(
@@ -701,7 +747,7 @@ class SettingsPanelDialog(
         isShownSection: Boolean
     ) {
         val inflater = LayoutInflater.from(context)
-        apps.forEachIndexed { listIdx, app ->
+        apps.forEach { app ->
             val isPendingOff = app.packageName in pendingOff
             var isOn = isShownSection && !isPendingOff
 
@@ -712,37 +758,21 @@ class SettingsPanelDialog(
             val btnUp   = v.findViewById<TextView>(R.id.btnMoveUp)
             val btnDown = v.findViewById<TextView>(R.id.btnMoveDown)
 
+            v.tag = app.packageName  // used to restore focus after rebuild
             app.icon?.let { iv.setImageDrawable(it) }
             tv.text = app.label
 
-            fun applyPill(on: Boolean) {
-                val bg = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 100f * dp
-                    setColor(if (on) 0xFFE53935.toInt() else 0xFF444444.toInt())
-                }
-                pill.background = bg
-            }
-            applyPill(isOn)
+            pill.background = makePillSlider(isOn)
 
-            // Pill: focusable toggle
+            pill.setOnFocusChangeListener { _, hasFocus ->
+                pill.background = makePillSlider(isOn, focused = hasFocus)
+            }
             pill.setOnClickListener {
                 isOn = !isOn
-                applyPill(isOn)
                 if (isOn) manageAllowed.add(app.packageName)
-                else manageAllowed.remove(app.packageName)
+                else      manageAllowed.remove(app.packageName)
                 prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                rawShowPage(currentTitle); buildManageApps(row)
-            }
-            pill.setOnFocusChangeListener { view, hasFocus ->
-                val bg = GradientDrawable().apply {
-                    shape = GradientDrawable.RECTANGLE
-                    cornerRadius = 100f * dp
-                    setColor(if (isOn) 0xFFE53935.toInt() else 0xFF444444.toInt())
-                    setStroke(if (hasFocus) (2 * dp).toInt() else 0,
-                        if (hasFocus) 0xFFFFFFFF.toInt() else 0)
-                }
-                view.background = bg
+                rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "pill")
             }
 
             // Reorder buttons visible only for shown-and-ON items
@@ -755,7 +785,7 @@ class SettingsPanelDialog(
                     if (idx > 0) {
                         manageAllowed.removeAt(idx); manageAllowed.add(idx - 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row)
+                        rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "up")
                     }
                 }
                 btnDown.setOnClickListener {
@@ -763,7 +793,7 @@ class SettingsPanelDialog(
                     if (idx in 0 until manageAllowed.size - 1) {
                         manageAllowed.removeAt(idx); manageAllowed.add(idx + 1, app.packageName)
                         prefRepo.updateRow(row.copy(apps = manageAllowed.toMutableList()))
-                        rawShowPage(currentTitle); buildManageApps(row)
+                        rawShowPage(currentTitle); buildManageApps(row, focusPkg = app.packageName, focusTarget = "down")
                     }
                 }
                 applyButtonFocus(btnUp)
