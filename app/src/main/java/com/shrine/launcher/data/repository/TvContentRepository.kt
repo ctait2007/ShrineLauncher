@@ -66,8 +66,7 @@ class TvContentRepository(private val context: Context) {
         val artworkUri: String?,
         val progressMs: Long,
         val durationMs: Long,
-        val watchNextType: Int,
-        val channelSourceId: String? = null
+        val watchNextType: Int
     )
 
     // ── Combined query ────────────────────────────────────────────────────────
@@ -88,8 +87,7 @@ class TvContentRepository(private val context: Context) {
         Log.d(TAG, "continueWatchingPackages: $continueWatchingPackages")
 
         // Continue Watching is the priority bucket: claims items with progress, CONTINUE
-        // type, unknowns (-1), items from apps whose channel is named "Continue Watching",
-        // and items whose channelSourceId contains "continue".
+        // type, unknowns (-1), and items from apps whose channel is named "Continue Watching".
         // Watch Next gets only what's left.
         val continueWatchingIds = watchNext
             .filter { row ->
@@ -97,7 +95,6 @@ class TvContentRepository(private val context: Context) {
                     || row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
                     || row.watchNextType == -1
                     || row.packageName in continueWatchingPackages
-                    || row.channelSourceId?.lowercase()?.contains("continue") == true
             }
             .map { it.id }
             .toSet()
@@ -187,24 +184,18 @@ class TvContentRepository(private val context: Context) {
                             val intentUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_INTENT_URI)
                             val posterUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_POSTER_ART_URI)
                             val thumbUri = c.safeString(TvContractCompat.PreviewPrograms.COLUMN_THUMBNAIL_URI)
-                            val watchNextType  = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
-                            val channelSourceId = program.channelSourceId
-
-                            Log.d(TAG, "WN row: pkg=$pkg title=$title " +
-                                "type=$watchNextType progressMs=$progressMs " +
-                                "channelSourceId=$channelSourceId")
+                            val watchNextType = c.safeInt(TvContractCompat.WatchNextPrograms.COLUMN_WATCH_NEXT_TYPE)
 
                             results.add(RawWatchNext(
-                                id              = id,
-                                title           = title,
-                                subtitle        = subtitle,
-                                packageName     = pkg,
-                                intentUri       = intentUri,
-                                artworkUri      = posterUri ?: thumbUri,
-                                progressMs      = progressMs,
-                                durationMs      = durationMs,
-                                watchNextType   = watchNextType,
-                                channelSourceId = channelSourceId
+                                id            = id,
+                                title         = title,
+                                subtitle      = subtitle,
+                                packageName   = pkg,
+                                intentUri     = intentUri,
+                                artworkUri    = posterUri ?: thumbUri,
+                                progressMs    = progressMs,
+                                durationMs    = durationMs,
+                                watchNextType = watchNextType
                             ))
                         } catch (e: Exception) {
                             Log.w(TAG, "Skipping malformed WatchNext row: ${e.message}")
