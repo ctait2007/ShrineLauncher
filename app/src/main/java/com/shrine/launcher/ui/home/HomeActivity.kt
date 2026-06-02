@@ -47,6 +47,15 @@ class HomeActivity : AppCompatActivity() {
 
     // Last focused card inside rvRows — captured in dispatchKeyEvent before any focus change
     private var lastRowsFocus: java.lang.ref.WeakReference<View>? = null
+
+    // Cached layout config used to build the current RowsAdapter.
+    // setupRows() skips adapter recreation if none of these have changed,
+    // so card views stay attached and focus is preserved across panel open/close.
+    private data class AdapterLayoutConfig(
+        val cornerRadius: Int, val iconSize: String,
+        val rowStart: Int, val itemSpacing: Int, val rowSpacing: Int
+    )
+    private var lastAdapterConfig: AdapterLayoutConfig? = null
     private fun View.isRowsDescendant(): Boolean {
         var p: android.view.ViewParent? = parent
         while (p != null) { if (p === binding.rvRows) return true; p = p.parent }
@@ -124,6 +133,17 @@ class HomeActivity : AppCompatActivity() {
 
     private fun setupRows() {
         val prefs = vm.prefs.value
+        val config = AdapterLayoutConfig(
+            cornerRadius = prefs?.cardCornerRadiusPercent ?: 50,
+            iconSize     = prefs?.iconSizeLabel ?: "M",
+            rowStart     = ((prefs?.rowStartPaddingDp ?: 20) * 120 / 100),
+            itemSpacing  = prefs?.itemSpacingPercent ?: 10,
+            rowSpacing   = prefs?.rowSpacingPercent ?: 20
+        )
+        // Skip adapter recreation if layout config is unchanged — preserves ViewHolders and focus
+        if (config == lastAdapterConfig) return
+        lastAdapterConfig = config
+
         rowsAdapter = RowsAdapter(
             onAppClick             = { app -> handleAppClick(app) },
             onAppLongClick         = { app -> showAppContextMenu(app) },
@@ -137,11 +157,11 @@ class HomeActivity : AppCompatActivity() {
                         CardDisplayMode.BANNER else CardDisplayMode.ICON)
             },
             onRowIconSizeChange    = { row -> vm.updateRow(row) },
-            cornerRadiusPercent    = prefs?.cardCornerRadiusPercent ?: 50,
-            iconSizeDp             = iconSizeDp(prefs?.iconSizeLabel ?: "M"),
-            rowStartPaddingDp      = ((prefs?.rowStartPaddingDp ?: 20) * 120 / 100),
-            itemSpacingDp          = prefs?.itemSpacingPercent ?: 10,
-            rowSpacingDp           = prefs?.rowSpacingPercent ?: 20
+            cornerRadiusPercent    = config.cornerRadius,
+            iconSizeDp             = iconSizeDp(config.iconSize),
+            rowStartPaddingDp      = config.rowStart,
+            itemSpacingDp          = config.itemSpacing,
+            rowSpacingDp           = config.rowSpacing
         )
         binding.rvRows.apply {
             layoutManager = LinearLayoutManager(this@HomeActivity)
