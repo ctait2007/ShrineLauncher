@@ -43,38 +43,32 @@ class AppsAdapter(
         fun bind(app: AppInfo) {
             val density = cardRoot.resources.displayMetrics.density
             val sizePx  = (iconSizeDp * density).toInt()
-            val params  = cardRoot.layoutParams
-            if (displayMode == CardDisplayMode.ICON) {
+
+            if (displayMode == CardDisplayMode.BANNER) {
+                // bindBanner computes the card width from the banner's intrinsic aspect
+                // ratio and sets cardRoot + focusBorderFrame dimensions itself.
+                bindBanner(app, sizePx, density)
+            } else {
+                val params = cardRoot.layoutParams
                 params.width  = sizePx
                 params.height = sizePx
-            } else {
-                params.height = sizePx
-                params.width  = (sizePx * 16f / 9f).toInt()
-            }
-            cardRoot.layoutParams = params
-            cardRoot.requestLayout()
-            // focusBorderFrame is exactly the same size as cardRoot — no extra padding.
-            // The focus ring is drawn via cardRoot.overlay so it appears above the icon
-            // without adding any extra space between items.
-            val borderParams = focusBorderFrame.layoutParams
-            if (displayMode == CardDisplayMode.ICON) {
+                cardRoot.layoutParams = params
+                cardRoot.requestLayout()
+
+                val borderParams = focusBorderFrame.layoutParams
                 borderParams.width  = sizePx
                 borderParams.height = sizePx
-            } else {
-                borderParams.height = sizePx
-                borderParams.width  = (sizePx * 16f / 9f).toInt()
+                focusBorderFrame.layoutParams = borderParams
+                focusBorderFrame.requestLayout()
+
+                bindIcon(app)
             }
-            focusBorderFrame.layoutParams = borderParams
-            focusBorderFrame.requestLayout()
 
             applyCornerRadius(cardRoot, cornerRadiusPercent)
 
             // GONE so unfocused items are exactly sizePx wide — no phantom gap from label
             tvName.visibility = View.GONE
             (tvName.layoutParams as? ViewGroup.LayoutParams)?.width = sizePx
-
-            if (displayMode == CardDisplayMode.BANNER) bindBanner(app)
-            else bindIcon(app)
 
             cardRoot.setOnClickListener { onAppClick(app) }
             cardRoot.setOnLongClickListener { onAppLongClick(app); true }
@@ -150,21 +144,45 @@ class AppsAdapter(
             ivIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
 
-        private fun bindBanner(app: AppInfo) {
+        private fun bindBanner(app: AppInfo, sizePx: Int, density: Float) {
+            val pm = itemView.context.packageManager
             val banner = try {
-                val pm = itemView.context.packageManager
                 pm.getApplicationBanner(app.packageName)
                     ?: pm.getActivityBanner(pm.getLaunchIntentForPackage(app.packageName)!!)
             } catch (e: Exception) { null }
 
-            if (banner != null) {
+            val cardW: Int
+            val cardH: Int = sizePx
+
+            if (banner != null && banner.intrinsicWidth > 0 && banner.intrinsicHeight > 0) {
+                cardW = (sizePx * banner.intrinsicWidth.toFloat() / banner.intrinsicHeight).toInt()
                 ivIcon.setImageDrawable(banner)
-                ivIcon.scaleType = ImageView.ScaleType.FIT_XY
+                ivIcon.scaleType = ImageView.ScaleType.CENTER_CROP
                 tvFallback?.visibility = View.GONE
             } else {
+                // Fallback: no banner drawable — show app icon in a 16:9 card
+                cardW = (sizePx * 16f / 9f).toInt()
                 ivIcon.setImageDrawable(app.icon)
                 ivIcon.scaleType = ImageView.ScaleType.CENTER_INSIDE
+                tvFallback?.visibility = View.GONE
             }
+
+            val cardParams = cardRoot.layoutParams
+            cardParams.width  = cardW
+            cardParams.height = cardH
+            cardRoot.layoutParams = cardParams
+            cardRoot.requestLayout()
+
+            val borderParams = focusBorderFrame.layoutParams
+            borderParams.width  = cardW
+            borderParams.height = cardH
+            focusBorderFrame.layoutParams = borderParams
+            focusBorderFrame.requestLayout()
+
+            val ivParams = ivIcon.layoutParams
+            ivParams.width  = cardW
+            ivParams.height = cardH
+            ivIcon.layoutParams = ivParams
         }
     }
 
