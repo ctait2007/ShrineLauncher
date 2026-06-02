@@ -183,14 +183,6 @@ class RowsAdapter(
                 btnRowSettings to R.id.btnRowSettings
             ).forEach { (btn, btnId) ->
                 btn.setOnFocusChangeListener { v, hasFocus ->
-                    if (!hasFocus && !inMoveMode) {
-                        // Collapse only when focus leaves ALL three buttons
-                        sidePanel.postDelayed({
-                            if (!btnRowSettings.isFocused && !btnDisplayMode.isFocused && !btnMoveRow.isFocused) {
-                                this@RowsAdapter.collapseAllPanels()
-                            }
-                        }, 100)
-                    }
                     if (btn !== btnMoveRow || !inMoveMode) {
                         applyButtonFocusRing(v, hasFocus)
                     }

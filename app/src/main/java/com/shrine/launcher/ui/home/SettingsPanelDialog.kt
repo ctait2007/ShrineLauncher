@@ -54,6 +54,7 @@ class SettingsPanelDialog(
     private val onDismissed: (() -> Unit)? = null,
     private val initialApp: AppInfo? = null,          // if set, open directly to context menu
     private val initialRow: LauncherRow? = null,      // if set, open directly to that row's editor
+    private val onBrowseForApk: (() -> Unit)? = null, // triggers HomeActivity's file picker
     private val onSettingsChanged: (() -> Unit)? = null
 ) : Dialog(context) {
 
@@ -1186,11 +1187,25 @@ class SettingsPanelDialog(
         }
 
         addEntry("Uninstall", labelColor = 0xFFCF6679.toInt()) {
-            context.startActivity(Intent(Intent.ACTION_DELETE).apply {
-                data = android.net.Uri.fromParts("package", app.packageName, null)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
-            dismiss()
+            scope.launch {
+                // Try silent uninstall via pm first
+                val ok = withContext(Dispatchers.IO) {
+                    try {
+                        val proc = Runtime.getRuntime().exec(arrayOf("pm", "uninstall", app.packageName))
+                        val output = proc.inputStream.bufferedReader().readText()
+                        proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
+                    } catch (e: Exception) { false }
+                }
+                if (ok) {
+                    Toast.makeText(context, "${app.label} uninstalled", Toast.LENGTH_SHORT).show()
+                } else {
+                    context.startActivity(Intent(Intent.ACTION_UNINSTALL_PACKAGE).apply {
+                        data = android.net.Uri.parse("package:${app.packageName}")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    })
+                }
+                dismiss()
+            }
         }
     }
 
@@ -1698,9 +1713,63 @@ class SettingsPanelDialog(
         addSeparator()
         addSectionHeader("PICK FROM DEVICE")
         addEntry("Browse for APK file", R.drawable.ic_install, showArrow = true) {
-            context.startActivity(android.content.Intent(context, AppInstallerActivity::class.java).apply {
-                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-            })
+            onBrowseForApk?.invoke()
+        }
+
+        addSeparator()
+        addSectionHeader("ADB SHELL")
+
+        val tvAdbNote = android.widget.TextView(context).apply {
+            text = "No 'adb shell' prefix needed — commands run on-device"
+            setTextColor(0xFF555555.toInt())
+            textSize = 10f
+            setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (4 * dp).toInt())
+        }
+        body.addView(tvAdbNote)
+
+        val etCmd = EditText(context).apply {
+            hint = "pm install -r /data/local/tmp/app.apk"
+            setTextColor(0xFFFFFFFF.toInt())
+            setHintTextColor(0xFF555555.toInt())
+            textSize = 12f
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.RECTANGLE
+                setColor(0x33FFFFFF)
+                cornerRadius = 6 * dp
+            }
+            val p = (10 * dp).toInt()
+            setPadding(p, p / 2, p, p / 2)
+        }
+        val cmdLp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        cmdLp.setMargins((16 * dp).toInt(), (4 * dp).toInt(), (16 * dp).toInt(), (4 * dp).toInt())
+        etCmd.layoutParams = cmdLp
+        body.addView(etCmd)
+
+        val tvCmdOutput = android.widget.TextView(context).apply {
+            setTextColor(0xFF888888.toInt())
+            textSize = 10f
+            setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
+        }
+        body.addView(tvCmdOutput)
+
+        addEntry("Run command", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+            val cmd = etCmd.text.toString().trim()
+            if (cmd.isBlank()) { tvCmdOutput.text = "Enter a command first"; return@addEntry }
+            tvCmdOutput.text = "Running…"
+            pageJob = scope.launch {
+                val result = withContext(Dispatchers.IO) {
+                    try {
+                        val parts = cmd.split("\\s+".toRegex())
+                        val proc = Runtime.getRuntime().exec(parts.toTypedArray())
+                        val stdout = proc.inputStream.bufferedReader().readText()
+                        val stderr = proc.errorStream.bufferedReader().readText()
+                        proc.waitFor()
+                        (stdout + stderr).trim().ifEmpty { "Exit ${proc.exitValue()}" }
+                    } catch (e: Exception) { "Error: ${e.message}" }
+                }
+                tvCmdOutput.text = result
+            }
         }
     }
 }

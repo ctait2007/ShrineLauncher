@@ -6,12 +6,16 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import android.view.KeyEvent
 import android.view.View
 import androidx.activity.result.contract.ActivityResultContracts
@@ -61,6 +65,11 @@ class HomeActivity : AppCompatActivity() {
         while (p != null) { if (p === binding.rvRows) return true; p = p.parent }
         return false
     }
+
+    // APK file picker for inline install (item 6)
+    private val pickApkLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri -> uri?.let { installApkFromUri(it) } }
 
     private val tvObserver = TvDatabaseObserver { vm.loadAll() }
 
@@ -451,6 +460,23 @@ class HomeActivity : AppCompatActivity() {
                 addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
+
+        // Status bar focus boundaries — consume d-pad keys that would escape the bar
+        binding.btnSettings.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_RIGHT -> true   // rightmost button: block right
+                KeyEvent.KEYCODE_DPAD_LEFT  ->        // leftmost if WiFi hidden
+                    binding.btnWifi.visibility != View.VISIBLE
+                else -> false
+            }
+        }
+        binding.btnWifi.setOnKeyListener { _, keyCode, event ->
+            if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) true   // leftmost button: block left
+            else false
+        }
+
         binding.btnWifi.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
             val dp = v.resources.displayMetrics.density
             val bg = android.graphics.drawable.GradientDrawable().apply {
@@ -493,8 +519,6 @@ class HomeActivity : AppCompatActivity() {
             wallpaperUri      = wallpaperUri,
             onDismissed       = {
                 activePanel = null
-                // Restore focus first (synchronously, card still attached) then reload
-                // so the RecyclerView update can't steal focus before it's set.
                 val target = lastRowsFocus?.get()
                 if (target != null && target.isAttachedToWindow) {
                     target.requestFocus()
@@ -504,10 +528,31 @@ class HomeActivity : AppCompatActivity() {
                 vm.loadAll()
             },
             initialApp        = initialApp,
+            onBrowseForApk    = { pickApkLauncher.launch(arrayOf("*/*")) },
             onSettingsChanged = { vm.loadAll() }
         )
         activePanel = dialog
         dialog.show()
+    }
+
+    private fun installApkFromUri(uri: Uri) {
+        lifecycleScope.launch {
+            Toast.makeText(this@HomeActivity, "Copying APK…", Toast.LENGTH_SHORT).show()
+            val ok = withContext(Dispatchers.IO) {
+                try {
+                    val dest = java.io.File("/data/local/tmp", "shrine_browse_install.apk")
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        java.io.FileOutputStream(dest).use { out -> input.copyTo(out) }
+                    }
+                    val proc = Runtime.getRuntime().exec(arrayOf("pm", "install", "-r", dest.absolutePath))
+                    val output = proc.inputStream.bufferedReader().readText()
+                    proc.waitFor() == 0 || output.contains("Success", ignoreCase = true)
+                } catch (e: Exception) { false }
+            }
+            Toast.makeText(this@HomeActivity,
+                if (ok) "APK installed successfully" else "Install failed — grant INSTALL_PACKAGES via ADB",
+                Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun showAppContextMenu(app: AppInfo) {
