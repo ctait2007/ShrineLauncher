@@ -16,6 +16,9 @@ local.properties
 .DS_Store
 **/.DS_Store
 
+# Signing keystore — decode from DEBUG_KEYSTORE secret: base64 -d <<< "$SECRET" > shrine-debug.jks
+shrine-debug.jks
+
 # Generated assets (produced by .github/assets_setup.py — never commit)
 app/src/main/res/mipmap-*/
 app/src/main/res/drawable-*/

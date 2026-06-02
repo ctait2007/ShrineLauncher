@@ -15,13 +15,37 @@ android {
         versionName = "0.9.31"
     }
 
+    // Use the project keystore (shrine-debug.jks) when present — ensures the same
+    // signature as CI builds so installs over existing versions always work.
+    // Place shrine-debug.jks in the project root (gitignored). If not present,
+    // Gradle falls back to the default Android debug keystore.
+    val keystoreFile = rootProject.file("shrine-debug.jks")
+    if (keystoreFile.exists()) {
+        signingConfigs {
+            create("shrine") {
+                storeFile     = keystoreFile
+                storePassword = "android"
+                keyAlias      = "shrine"
+                keyPassword   = "android"
+            }
+        }
+    }
+
     buildTypes {
+        debug {
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("shrine")
+            }
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (keystoreFile.exists()) {
+                signingConfig = signingConfigs.getByName("shrine")
+            }
         }
     }
 
