@@ -24,6 +24,7 @@ import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import com.shrine.launcher.R
+import com.shrine.launcher.adb.AdbManager
 import com.shrine.launcher.data.model.AppInfo
 import com.shrine.launcher.data.model.CardDisplayMode
 import com.shrine.launcher.data.model.CategoryType
@@ -483,6 +484,9 @@ class SettingsPanelDialog(
         }
         addEntry("Install 3rd Party Apps", R.drawable.ic_install, showArrow = true) {
             navigateTo("Install Apps") { buildInstallerPage() }
+        }
+        addEntry("ADB Shell", R.drawable.ic_install, showArrow = true) {
+            navigateTo("ADB Shell") { buildAdbShellPage() }
         }
     }
 
@@ -1716,60 +1720,205 @@ class SettingsPanelDialog(
             onBrowseForApk?.invoke()
         }
 
-        addSeparator()
-        addSectionHeader("ADB SHELL")
+    }
 
-        val tvAdbNote = android.widget.TextView(context).apply {
-            text = "No 'adb shell' prefix needed — commands run on-device"
-            setTextColor(0xFF555555.toInt())
-            textSize = 10f
-            setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (4 * dp).toInt())
+    // ═══════════════════════════════════════════════════════════════════════════
+    // PAGE: ADB SHELL
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    private fun buildAdbShellPage() {
+        val adb = AdbManager.getInstance(context)
+
+        // ── Status badge ──────────────────────────────────────────────────────
+        val statusColor = when (adb.state) {
+            AdbManager.AdbState.CONNECTED    -> 0xFF4CAF50.toInt()
+            AdbManager.AdbState.PAIRED       -> 0xFFFF9800.toInt()
+            else                             -> 0xFFE53935.toInt()
         }
-        body.addView(tvAdbNote)
+        val statusText = when (adb.state) {
+            AdbManager.AdbState.NOT_PAIRED  -> "Not paired"
+            AdbManager.AdbState.PAIRING     -> "Pairing…"
+            AdbManager.AdbState.PAIRED      -> "Paired — not connected"
+            AdbManager.AdbState.CONNECTING  -> "Connecting…"
+            AdbManager.AdbState.CONNECTED   -> "Connected  uid=2000(shell)"
+        }
+        val tvStatus = android.widget.TextView(context).apply {
+            text = statusText
+            setTextColor(statusColor)
+            textSize = 11f
+            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+        }
+        body.addView(tvStatus)
 
-        val etCmd = EditText(context).apply {
-            hint = "pm install -r /data/local/tmp/app.apk"
-            setTextColor(0xFFFFFFFF.toInt())
-            setHintTextColor(0xFF555555.toInt())
-            textSize = 12f
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.RECTANGLE
-                setColor(0x33FFFFFF)
-                cornerRadius = 6 * dp
+        // ── Pairing section (shown when not yet paired) ───────────────────────
+        if (adb.state == AdbManager.AdbState.NOT_PAIRED || adb.state == AdbManager.AdbState.PAIRING) {
+            addSectionHeader("PAIR WITH WIRELESS DEBUGGING")
+
+            val tvPairInstructions = android.widget.TextView(context).apply {
+                text = "On Fire TV: Developer Options → Wireless Debugging → Pair device with pairing code. Enter the pairing port and 6-digit code shown."
+                setTextColor(0xFF666666.toInt())
+                textSize = 10f
+                setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (6 * dp).toInt())
             }
-            val p = (10 * dp).toInt()
-            setPadding(p, p / 2, p, p / 2)
-        }
-        val cmdLp = LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        cmdLp.setMargins((16 * dp).toInt(), (4 * dp).toInt(), (16 * dp).toInt(), (4 * dp).toInt())
-        etCmd.layoutParams = cmdLp
-        body.addView(etCmd)
+            body.addView(tvPairInstructions)
 
-        val tvCmdOutput = android.widget.TextView(context).apply {
-            setTextColor(0xFF888888.toInt())
-            textSize = 10f
-            setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
-        }
-        body.addView(tvCmdOutput)
+            val etPairHost = makeEditText("localhost")
+            addLabeledField("Host", etPairHost)
 
-        addEntry("Run command", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
-            val cmd = etCmd.text.toString().trim()
-            if (cmd.isBlank()) { tvCmdOutput.text = "Enter a command first"; return@addEntry }
-            tvCmdOutput.text = "Running…"
-            pageJob = scope.launch {
-                val result = withContext(Dispatchers.IO) {
-                    try {
-                        val parts = cmd.split("\\s+".toRegex())
-                        val proc = Runtime.getRuntime().exec(parts.toTypedArray())
-                        val stdout = proc.inputStream.bufferedReader().readText()
-                        val stderr = proc.errorStream.bufferedReader().readText()
-                        proc.waitFor()
-                        (stdout + stderr).trim().ifEmpty { "Exit ${proc.exitValue()}" }
-                    } catch (e: Exception) { "Error: ${e.message}" }
+            val etPairPort = makeEditText("").also {
+                it.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                it.hint = "Pairing port (e.g. 37893)"
+            }
+            addLabeledField("Pairing port", etPairPort)
+
+            val etCode = makeEditText("").also {
+                it.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                it.hint = "6-digit code"
+            }
+            addLabeledField("Code", etCode)
+
+            val tvPairResult = android.widget.TextView(context).apply {
+                setTextColor(0xFF888888.toInt()); textSize = 10f
+                setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
+            }
+            body.addView(tvPairResult)
+
+            addEntry("Pair", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+                val host = etPairHost.text.toString().trim().ifEmpty { "localhost" }
+                val port = etPairPort.text.toString().trim().toIntOrNull()
+                val code = etCode.text.toString().replace("\\s".toRegex(), "")
+                if (port == null) { tvPairResult.text = "Enter a valid port number"; return@addEntry }
+                if (code.length != 6) { tvPairResult.text = "Code must be 6 digits"; return@addEntry }
+                tvPairResult.text = "Pairing…"; tvStatus.text = "Pairing…"
+                pageJob = scope.launch {
+                    val result = adb.doPair(host, port, code)
+                    if (result.success) {
+                        rawShowPage(currentTitle); buildAdbShellPage()
+                    } else {
+                        tvPairResult.setTextColor(0xFFE53935.toInt())
+                        tvPairResult.text = result.error ?: "Pairing failed"
+                        tvStatus.text = "Not paired"
+                    }
                 }
-                tvCmdOutput.text = result
             }
         }
+
+        // ── Connection section (shown when paired or connected) ───────────────
+        if (adb.state != AdbManager.AdbState.NOT_PAIRED && adb.state != AdbManager.AdbState.PAIRING) {
+            addSectionHeader("CONNECTION")
+
+            val tvConnInstructions = android.widget.TextView(context).apply {
+                text = "Use 'localhost' as host. The port is shown in Developer Options → Wireless Debugging (the main IP address line)."
+                setTextColor(0xFF666666.toInt()); textSize = 10f
+                setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (6 * dp).toInt())
+            }
+            body.addView(tvConnInstructions)
+
+            val etConnHost = makeEditText(adb.savedHost())
+            addLabeledField("Host", etConnHost)
+
+            val etConnPort = makeEditText(adb.savedPort().let { if (it == 5555) "" else it.toString() }).also {
+                it.inputType = android.text.InputType.TYPE_CLASS_NUMBER
+                it.hint = "ADB port (from Wireless Debugging)"
+            }
+            addLabeledField("Port", etConnPort)
+
+            val tvConnResult = android.widget.TextView(context).apply {
+                setTextColor(0xFF888888.toInt()); textSize = 10f
+                setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
+            }
+            body.addView(tvConnResult)
+
+            if (adb.state != AdbManager.AdbState.CONNECTED) {
+                addEntry("Connect", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+                    val host = etConnHost.text.toString().trim().ifEmpty { "localhost" }
+                    val port = etConnPort.text.toString().trim().toIntOrNull()
+                    if (port == null) { tvConnResult.text = "Enter a valid port number"; return@addEntry }
+                    tvConnResult.text = "Connecting…"; tvStatus.text = "Connecting…"
+                    pageJob = scope.launch {
+                        val result = adb.doConnect(host, port)
+                        if (result.success) {
+                            rawShowPage(currentTitle); buildAdbShellPage()
+                        } else {
+                            tvConnResult.setTextColor(0xFFE53935.toInt())
+                            tvConnResult.text = result.error ?: "Connection failed"
+                            tvStatus.text = "Paired — not connected"
+                        }
+                    }
+                }
+            } else {
+                addEntry("Disconnect", labelColor = 0xFFCF6679.toInt()) {
+                    adb.doDisconnect()
+                    rawShowPage(currentTitle); buildAdbShellPage()
+                }
+            }
+
+            addSeparator()
+            addEntry("Reset pairing", labelColor = 0xFF555555.toInt()) {
+                adb.resetPairing()
+                rawShowPage(currentTitle); buildAdbShellPage()
+            }
+        }
+
+        // ── Shell section (shown only when connected) ─────────────────────────
+        if (adb.state == AdbManager.AdbState.CONNECTED) {
+            addSectionHeader("SHELL  —  uid=2000(shell)")
+
+            val etCmd = makeEditText("").also {
+                it.hint = "am force-stop com.example.app"
+                it.textSize = 12f
+            }
+            body.addView(etCmd)
+
+            val tvOutput = android.widget.TextView(context).apply {
+                setTextColor(0xFF9CCC65.toInt())   // green — terminal-style
+                textSize = 10f
+                typeface = android.graphics.Typeface.MONOSPACE
+                setPadding((20 * dp).toInt(), (4 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+            }
+            body.addView(tvOutput)
+
+            addEntry("Run", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+                val cmd = etCmd.text.toString().trim()
+                if (cmd.isBlank()) { tvOutput.text = "Enter a command"; return@addEntry }
+                tvOutput.text = "Running…"
+                pageJob = scope.launch {
+                    val result = adb.executeShell(cmd)
+                    tvOutput.text = result.output.ifEmpty { "(no output)" }
+                    if (result.exitCode != 0 && adb.state != AdbManager.AdbState.CONNECTED) {
+                        tvStatus.text = "Paired — not connected"
+                        tvStatus.setTextColor(0xFFFF9800.toInt())
+                    }
+                }
+            }
+        }
+    }
+
+    private fun makeEditText(initial: String): EditText = EditText(context).apply {
+        setText(initial)
+        setTextColor(0xFFFFFFFF.toInt())
+        setHintTextColor(0xFF555555.toInt())
+        textSize = 13f
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.RECTANGLE
+            setColor(0x33FFFFFF); cornerRadius = 6 * dp
+        }
+        val p = (10 * dp).toInt()
+        setPadding(p, p / 2, p, p / 2)
+        val lp = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        lp.setMargins((16 * dp).toInt(), (3 * dp).toInt(), (16 * dp).toInt(), (3 * dp).toInt())
+        layoutParams = lp
+    }
+
+    private fun addLabeledField(label: String, field: EditText) {
+        val tvLabel = android.widget.TextView(context).apply {
+            text = label
+            setTextColor(0xFF888888.toInt()); textSize = 10f
+            setPadding((20 * dp).toInt(), (4 * dp).toInt(), 0, 0)
+        }
+        body.addView(tvLabel)
+        body.addView(field)
     }
 }
