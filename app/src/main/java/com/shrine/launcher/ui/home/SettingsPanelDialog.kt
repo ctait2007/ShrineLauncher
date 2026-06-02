@@ -1735,37 +1735,31 @@ class SettingsPanelDialog(
         // ── Status ────────────────────────────────────────────────────────────
         val statusColor = if (adb.state == AdbManager.AdbState.CONNECTED) 0xFF4CAF50.toInt()
                           else 0xFFE53935.toInt()
-        val statusText  = when (adb.state) {
+        val statusText = when (adb.state) {
             AdbManager.AdbState.DISCONNECTED -> "Not connected"
             AdbManager.AdbState.CONNECTING   -> "Connecting…"
             AdbManager.AdbState.CONNECTED    -> "Connected  uid=2000(shell)"
         }
         val tvStatus = android.widget.TextView(context).apply {
-            text = statusText
-            setTextColor(statusColor)
-            textSize = 11f
-            typeface = android.graphics.Typeface.DEFAULT_BOLD
+            text = statusText; setTextColor(statusColor)
+            textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
             setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
         }
         body.addView(tvStatus)
 
-        // ── Connection section ────────────────────────────────────────────────
+        // ── Permission / connection ───────────────────────────────────────────
         addSectionHeader("CONNECTION")
 
-        val tvNote = android.widget.TextView(context).apply {
-            text = "Connects to adbd on this device (port 5555). On first use, an \"Allow ADB debugging?\" dialog will appear on screen — approve it with the remote."
-            setTextColor(0xFF666666.toInt()); textSize = 10f
-            setPadding((20 * dp).toInt(), 0, (20 * dp).toInt(), (6 * dp).toInt())
+        if (!adb.hasPermission()) {
+            val tvPerm = android.widget.TextView(context).apply {
+                text = "One-time setup required. Run from your Mac:\n\nadb shell pm grant com.shrine.launcher android.permission.WRITE_SECURE_SETTINGS\n\nThen re-open this panel."
+                setTextColor(0xFFE53935.toInt()); textSize = 10f
+                typeface = android.graphics.Typeface.MONOSPACE
+                setPadding((20 * dp).toInt(), (4 * dp).toInt(), (20 * dp).toInt(), (8 * dp).toInt())
+            }
+            body.addView(tvPerm)
+            return
         }
-        body.addView(tvNote)
-
-        val etHost = makeEditText(adb.savedHost())
-        addLabeledField("Host", etHost)
-
-        val etPort = makeEditText(adb.savedPort().toString()).also {
-            it.inputType = android.text.InputType.TYPE_CLASS_NUMBER
-        }
-        addLabeledField("Port", etPort)
 
         val tvConnResult = android.widget.TextView(context).apply {
             setTextColor(0xFF888888.toInt()); textSize = 10f
@@ -1775,13 +1769,11 @@ class SettingsPanelDialog(
 
         if (adb.state != AdbManager.AdbState.CONNECTED) {
             addEntry("Connect", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
-                val host = etHost.text.toString().trim().ifEmpty { AdbManager.DEFAULT_HOST }
-                val port = etPort.text.toString().trim().toIntOrNull() ?: AdbManager.DEFAULT_PORT
                 tvConnResult.setTextColor(0xFF888888.toInt())
-                tvConnResult.text = "Connecting…"
+                tvConnResult.text = "Starting shell…"
                 tvStatus.text = "Connecting…"
                 pageJob = scope.launch {
-                    val result = adb.doConnect(host, port)
+                    val result = adb.doConnect()
                     if (result.success) {
                         rawShowPage(currentTitle); buildAdbShellPage()
                     } else {
@@ -1802,14 +1794,13 @@ class SettingsPanelDialog(
             addSectionHeader("SHELL  —  uid=2000(shell)")
 
             val etCmd = makeEditText("").also {
-                it.hint = "am force-stop com.example.app"
+                it.hint = "pm force-stop com.example.app"
                 it.textSize = 12f
             }
             body.addView(etCmd)
 
             val tvOutput = android.widget.TextView(context).apply {
-                setTextColor(0xFF9CCC65.toInt())
-                textSize = 10f
+                setTextColor(0xFF9CCC65.toInt()); textSize = 10f
                 typeface = android.graphics.Typeface.MONOSPACE
                 setPadding((20 * dp).toInt(), (4 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
             }
