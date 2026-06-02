@@ -301,7 +301,7 @@ class RowsAdapter(
                 LinearLayoutManager(rvApps.context, LinearLayoutManager.HORIZONTAL, false)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
-            rvApps.setHasFixedSize(true)
+            rvApps.setHasFixedSize(false)
             adapter.submitList(item.apps)
         }
 

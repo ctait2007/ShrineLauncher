@@ -88,8 +88,20 @@ class AppsAdapter(
                         val lm = rv?.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
                         val next = adapterPosition + 1
                         if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
-                            lm.findViewByPosition(next)?.requestFocus()
-                                ?: rv.smoothScrollToPosition(next)
+                            val nextView = lm.findViewByPosition(next)
+                            if (nextView != null) {
+                                nextView.requestFocus()
+                            } else {
+                                rv.smoothScrollToPosition(next)
+                                rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                                    override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
+                                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                                            rv.removeOnScrollListener(this)
+                                            lm.findViewByPosition(next)?.requestFocus()
+                                        }
+                                    }
+                                })
+                            }
                         }
                         true // always consume right key
                     }

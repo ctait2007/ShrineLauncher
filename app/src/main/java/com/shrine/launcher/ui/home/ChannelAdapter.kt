@@ -108,7 +108,8 @@ class ChannelAdapter(
             val progressValue = when {
                 content.durationMs > 0 && content.progressMs > 0 -> content.progressPercent
                 content.progressMs > 0 -> 10
-                content.channelType == ChannelType.CONTINUE_WATCHING -> 10
+                content.channelType == ChannelType.CONTINUE_WATCHING
+                    || content.channelType == ChannelType.WATCH_NEXT -> 10
                 else -> -1
             }
             if (progressValue >= 0) {
@@ -146,8 +147,20 @@ class ChannelAdapter(
                         val lm = rv?.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
                         val next = adapterPosition + 1
                         if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
-                            lm.findViewByPosition(next)?.requestFocus()
-                                ?: rv.smoothScrollToPosition(next)
+                            val nextView = lm.findViewByPosition(next)
+                            if (nextView != null) {
+                                nextView.requestFocus()
+                            } else {
+                                rv.smoothScrollToPosition(next)
+                                rv.addOnScrollListener(object : RecyclerView.OnScrollListener() {
+                                    override fun onScrollStateChanged(rv: RecyclerView, newState: Int) {
+                                        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+                                            rv.removeOnScrollListener(this)
+                                            lm.findViewByPosition(next)?.requestFocus()
+                                        }
+                                    }
+                                })
+                            }
                         }
                         true
                     }
