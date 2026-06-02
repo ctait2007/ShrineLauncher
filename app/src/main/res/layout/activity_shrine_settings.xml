@@ -33,7 +33,7 @@
                 android:id="@+id/ivSettingsLogo"
                 android:layout_width="200dp"
                 android:layout_height="80dp"
-                android:src="@drawable/banner"
+                android:src="@drawable/shrine_text_logo"
                 android:scaleType="fitCenter"
                 android:adjustViewBounds="true"
                 android:contentDescription="Shrine Launcher" />
