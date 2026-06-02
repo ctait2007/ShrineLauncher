@@ -11,8 +11,8 @@ android {
         applicationId = "com.shrine.launcher"
         minSdk = 22
         targetSdk = 34
-        versionCode = 48
-        versionName = "0.9.29"
+        versionCode = 49
+        versionName = "0.9.30"
     }
 
     buildTypes {

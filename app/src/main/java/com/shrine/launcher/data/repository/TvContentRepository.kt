@@ -79,33 +79,34 @@ class TvContentRepository(private val context: Context) {
                 "type=${row.watchNextType} | progressMs=${row.progressMs} | durationMs=${row.durationMs}")
         }
 
-        // Build a set of package names whose published channels are named "Continue Watching"
-        // (or contain "continue"). This is the most reliable routing signal — it is the
-        // app's own ground-truth declaration of which content is in-progress, independent
-        // of watchNextType codes and progressMs values which Fire TV apps set inconsistently.
-        val continueWatchingPackages = buildContinueWatchingPackages()
-        Log.d(TAG, "continueWatchingPackages: $continueWatchingPackages")
-
-        // Continue Watching is the priority bucket: claims items with progress, CONTINUE
-        // type, unknowns (-1), and items from apps whose channel is named "Continue Watching".
-        // Watch Next gets only what's left.
+        // Classify by playback progress fraction — same approach used by Projectivy.
+        // Apps (e.g. Nuvio) publish in-progress content as WATCH_NEXT_TYPE_NEXT rather
+        // than WATCH_NEXT_TYPE_CONTINUE, so type flags alone are not reliable.
+        // An item is "in progress" when it has meaningful progress: started past 2% and
+        // not within 2% of the end, with both duration and position available.
         val continueWatchingIds = watchNext
             .filter { row ->
-                row.progressMs > 0L
-                    || row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
-                    || row.watchNextType == -1
-                    || row.packageName in continueWatchingPackages
+                val progressFraction =
+                    if (row.durationMs > 0) row.progressMs.toFloat() / row.durationMs.toFloat()
+                    else 0f
+
+                val hasPlaybackProgress =
+                    row.durationMs > 0 &&
+                    row.progressMs > 0 &&
+                    row.progressMs < row.durationMs &&
+                    progressFraction > 0.02f &&
+                    progressFraction < 0.98f
+
+                hasPlaybackProgress ||
+                    row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_CONTINUE
             }
             .map { it.id }
             .toSet()
 
         val filtered = when (type) {
             ChannelType.CONTINUE_WATCHING -> watchNext.filter { it.id in continueWatchingIds }
-            ChannelType.WATCH_NEXT -> watchNext.filter { row ->
-                row.id !in continueWatchingIds
-                    && row.watchNextType == TvContractCompat.WatchNextPrograms.WATCH_NEXT_TYPE_NEXT
-            }
-            else -> watchNext
+            ChannelType.WATCH_NEXT        -> watchNext.filter { row -> row.id !in continueWatchingIds }
+            else                          -> watchNext
         }.map { row ->
             TvContent(
                 id          = row.id,

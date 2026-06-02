@@ -63,22 +63,20 @@ class ChannelAdapter(
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
 
-            // Clip only the artwork to rounded corners so the progress bar and focus
-            // overlay aren't cut off by the outline.
+            // Clip cardRoot itself so all children (artwork, progress bar, focus overlay)
+            // share the same rounded boundary. The progress bar at the bottom will have
+            // its corners naturally clipped to match the card's roundedness.
             val radius = heightPx * (cornerRadiusPercent / 100f) * 0.5f
-            // Fully opaque background required so ViewOutlineProvider.BACKGROUND
-            // produces a valid outline and clipToOutline actually clips the artwork.
             val roundedBg = android.graphics.drawable.GradientDrawable().apply {
                 shape        = android.graphics.drawable.GradientDrawable.RECTANGLE
                 setColor(0xFF1E1E1E.toInt())
                 cornerRadius = radius
             }
-            ivArtwork.background      = roundedBg
-            ivArtwork.clipToOutline   = true
-            ivArtwork.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
-            // cardRoot must NOT clip children — progress bar and focus overlay sit inside it
-            cardRoot.background  = null
-            cardRoot.clipToOutline = false
+            cardRoot.background      = roundedBg
+            cardRoot.clipToOutline   = true
+            cardRoot.outlineProvider = android.view.ViewOutlineProvider.BACKGROUND
+            ivArtwork.background   = null
+            ivArtwork.clipToOutline = false
 
             // Diagnose progress values so we can confirm the cursor columns are correct
             android.util.Log.d("ChannelAdapter",
@@ -140,7 +138,9 @@ class ChannelAdapter(
                 if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (adapterPosition == 0) { onLeftFromFirst?.invoke(); true } else false
+                        if (adapterPosition == 0 && event.repeatCount == 0) {
+                            onLeftFromFirst?.invoke(); true
+                        } else false
                     }
                     android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         val rv = itemView.parent as? RecyclerView

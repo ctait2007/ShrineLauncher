@@ -81,7 +81,10 @@ class AppsAdapter(
                 if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (adapterPosition == 0) { onLeftFromFirst?.invoke(); true } else false
+                        // repeatCount > 0 means the key is held — don't open the panel on hold
+                        if (adapterPosition == 0 && event.repeatCount == 0) {
+                            onLeftFromFirst?.invoke(); true
+                        } else false
                     }
                     android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
                         val rv = itemView.parent as? RecyclerView
