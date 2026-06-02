@@ -87,27 +87,7 @@ class AppsAdapter(
                             onLeftFromFirst?.invoke(); true
                         } else false
                     }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                        val rv = itemView.parent as? RecyclerView
-                        val lm = rv?.layoutManager as? androidx.recyclerview.widget.LinearLayoutManager
-                        val next = adapterPosition + 1
-                        if (rv != null && lm != null && next < (rv.adapter?.itemCount ?: 0)) {
-                            val nextView = lm.findViewByPosition(next)
-                            if (nextView != null) {
-                                (nextView.findViewById<View>(R.id.cardRoot) ?: nextView).requestFocus()
-                            } else {
-                                val density = cardRoot.resources.displayMetrics.density
-                                val stepPx = cardRoot.width + (itemSpacingDp * density).toInt()
-                                rv.scrollBy(stepPx, 0)
-                                rv.post {
-                                    lm.findViewByPosition(next)?.let { v ->
-                                        (v.findViewById<View>(R.id.cardRoot) ?: v).requestFocus()
-                                    }
-                                }
-                            }
-                        }
-                        true
-                    }
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> false
                     else -> false
                 }
             }
