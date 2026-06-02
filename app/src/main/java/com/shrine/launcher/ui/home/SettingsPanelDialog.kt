@@ -984,7 +984,7 @@ class SettingsPanelDialog(
         val chSizeNames  = arrayOf("Global", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
         var chSizeExpanded = false
         val chSizeOptionViews = mutableListOf<View>()
-        val chSizeHeader = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", showArrow = false) { }
+        val chSizeHeader = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", R.drawable.ic_format_size, showArrow = false) { }
         chSizeLabels.forEachIndexed { i, sz ->
             val ov  = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
             val tvO = ov.findViewById<TextView>(R.id.tvEntryLabel)

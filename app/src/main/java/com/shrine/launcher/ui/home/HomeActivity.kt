@@ -45,6 +45,19 @@ class HomeActivity : AppCompatActivity() {
     private var activePanel: SettingsPanelDialog? = null
     private var preIdleFocusedView: android.view.View? = null
 
+    // Tracks the last card/item inside rvRows that held focus, so the panel can restore to it
+    private var lastRowsFocus: java.lang.ref.WeakReference<View>? = null
+    private val rowsFocusTracker = android.view.ViewTreeObserver.OnGlobalFocusChangeListener { _, newFocus ->
+        if (newFocus != null && newFocus.isRowsDescendant()) {
+            lastRowsFocus = java.lang.ref.WeakReference(newFocus)
+        }
+    }
+    private fun View.isRowsDescendant(): Boolean {
+        var p = parent
+        while (p != null) { if (p === binding.rvRows) return true; p = p.parent }
+        return false
+    }
+
     private val tvObserver = TvDatabaseObserver { vm.loadAll() }
 
     private val tvPermissionLauncher = registerForActivityResult(
@@ -71,6 +84,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onStart() {
         super.onStart()
+        binding.root.viewTreeObserver.addOnGlobalFocusChangeListener(rowsFocusTracker)
         registerPackageReceiver()
         try {
             contentResolver.registerContentObserver(
@@ -90,6 +104,7 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        try { binding.root.viewTreeObserver.removeOnGlobalFocusChangeListener(rowsFocusTracker) } catch (_: Exception) { }
         try { contentResolver.unregisterContentObserver(tvObserver) } catch (e: Exception) { }
         idleHandler.removeCallbacks(idleRunnable)
     }
@@ -413,7 +428,6 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun openPanel(initialApp: AppInfo? = null) {
-        val preFocus = currentFocus   // save focus before panel opens
         val wallpaperUri = vm.prefs.value?.wallpaperUri
             ?: vm.prefs.value?.wallpaperUris?.firstOrNull()
         val dialog = SettingsPanelDialog(
@@ -422,10 +436,11 @@ class HomeActivity : AppCompatActivity() {
             onDismissed       = {
                 activePanel = null
                 vm.loadAll()
-                if (preFocus != null && preFocus.isAttachedToWindow) {
-                    preFocus.post { preFocus.requestFocus() }
+                val target = lastRowsFocus?.get()
+                if (target != null && target.isAttachedToWindow) {
+                    target.post { target.requestFocus() }
                 } else {
-                    binding.btnSettings.post { binding.btnSettings.requestFocus() }
+                    binding.rvRows.post { binding.rvRows.requestFocus() }
                 }
             },
             initialApp        = initialApp,
