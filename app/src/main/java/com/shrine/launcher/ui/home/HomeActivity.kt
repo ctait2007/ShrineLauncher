@@ -81,7 +81,12 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private val packageReceiver = object : BroadcastReceiver() {
-        override fun onReceive(ctx: Context, intent: Intent) { vm.loadAll() }
+        override fun onReceive(ctx: Context, intent: Intent) {
+            if (intent.action == Intent.ACTION_PACKAGE_ADDED) {
+                vm.recentlyInstalledPackage = intent.data?.schemeSpecificPart
+            }
+            vm.loadAll()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -98,6 +103,10 @@ class HomeActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         registerPackageReceiver()
+        val adb = com.shrine.launcher.adb.AdbManager.getInstance(this)
+        if (adb.hasPermission() && adb.state == com.shrine.launcher.adb.AdbManager.AdbState.DISCONNECTED) {
+            lifecycleScope.launch { adb.doConnect() }
+        }
         try {
             contentResolver.registerContentObserver(
                 androidx.tvprovider.media.tv.TvContractCompat.WatchNextPrograms.CONTENT_URI,
@@ -465,16 +474,19 @@ class HomeActivity : AppCompatActivity() {
         binding.btnSettings.setOnKeyListener { _, keyCode, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
             when (keyCode) {
-                KeyEvent.KEYCODE_DPAD_RIGHT -> true   // rightmost button: block right
-                KeyEvent.KEYCODE_DPAD_LEFT  ->        // leftmost if WiFi hidden
-                    binding.btnWifi.visibility != View.VISIBLE
+                KeyEvent.KEYCODE_DPAD_RIGHT -> true
+                KeyEvent.KEYCODE_DPAD_LEFT  -> binding.btnWifi.visibility != View.VISIBLE
+                KeyEvent.KEYCODE_DPAD_DOWN  -> { focusFirstCardOfRow(0); true }
                 else -> false
             }
         }
         binding.btnWifi.setOnKeyListener { _, keyCode, event ->
             if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-            if (keyCode == KeyEvent.KEYCODE_DPAD_LEFT) true   // leftmost button: block left
-            else false
+            when (keyCode) {
+                KeyEvent.KEYCODE_DPAD_LEFT -> true
+                KeyEvent.KEYCODE_DPAD_DOWN -> { focusFirstCardOfRow(0); true }
+                else -> false
+            }
         }
 
         binding.btnWifi.onFocusChangeListener = View.OnFocusChangeListener { v, hasFocus ->
@@ -564,8 +576,9 @@ class HomeActivity : AppCompatActivity() {
             if (useTmp) {
                 val result = adb.executeShell("pm install -r $tmpPath")
                 adb.executeShell("rm -f $tmpPath")
+                val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
                 Toast.makeText(this@HomeActivity,
-                    if (result.exitCode == 0) "APK installed successfully"
+                    if (ok) "APK installed successfully"
                     else "Install failed: ${result.output}",
                     Toast.LENGTH_LONG).show()
             } else {

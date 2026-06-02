@@ -1688,7 +1688,8 @@ class SettingsPanelDialog(
                 if (useTmp) {
                     val result = adb.executeShell("pm install -r $tmpPath")
                     adb.executeShell("rm -f $tmpPath")
-                    tvStatus.text = if (result.exitCode == 0) "✓ Installed successfully"
+                    val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
+                    tvStatus.text = if (ok) "✓ Installed successfully"
                                     else "Install failed: ${result.output}"
                 } else {
                     tvStatus.text = "Opening system installer…"
@@ -1720,25 +1721,13 @@ class SettingsPanelDialog(
     private fun buildAdbShellPage() {
         val adb = AdbManager.getInstance(context)
 
-        // ── Permission / connection ───────────────────────────────────────────
-        addSectionHeader("CONNECTION")
-
-        // ── Status ────────────────────────────────────────────────────────────
-        val statusColor = if (adb.state == AdbManager.AdbState.CONNECTED) 0xFF4CAF50.toInt()
-                          else 0xFFE53935.toInt()
-        val statusText = when (adb.state) {
-            AdbManager.AdbState.DISCONNECTED -> "Not connected"
-            AdbManager.AdbState.CONNECTING   -> "Connecting…"
-            AdbManager.AdbState.CONNECTED    -> "Connected"
-        }
-        val tvStatus = android.widget.TextView(context).apply {
-            text = statusText; setTextColor(statusColor)
-            textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
-            setPadding((20 * dp).toInt(), (4 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
-        }
-        body.addView(tvStatus)
-
         if (!adb.hasPermission()) {
+            val tvStatus = android.widget.TextView(context).apply {
+                text = "Not connected"; setTextColor(0xFFE53935.toInt())
+                textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+            }
+            body.addView(tvStatus)
             val tvPerm = android.widget.TextView(context).apply {
                 text = "One-time setup required. Run from your Mac:\n\nadb shell pm grant com.shrine.launcher android.permission.WRITE_SECURE_SETTINGS\n\nThen re-open this panel."
                 setTextColor(0xFFE53935.toInt()); textSize = 10f
@@ -1749,36 +1738,8 @@ class SettingsPanelDialog(
             return
         }
 
-        val tvConnResult = android.widget.TextView(context).apply {
-            setTextColor(0xFF888888.toInt()); textSize = 10f
-            setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
-        }
-        body.addView(tvConnResult)
-
-        if (adb.state != AdbManager.AdbState.CONNECTED) {
-            addEntry("Connect", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
-                tvConnResult.setTextColor(0xFF888888.toInt())
-                tvConnResult.text = "Starting shell…"
-                tvStatus.text = "Connecting…"
-                pageJob = scope.launch {
-                    val result = adb.doConnect()
-                    if (result.success) {
-                        rawShowPage(currentTitle); buildAdbShellPage()
-                    } else {
-                        tvConnResult.setTextColor(0xFFE53935.toInt())
-                        tvConnResult.text = result.error ?: "Connection failed"
-                        tvStatus.text = "Not connected"; tvStatus.setTextColor(0xFFE53935.toInt())
-                    }
-                }
-            }
-        } else {
-            addEntry("Disconnect", labelColor = 0xFFCF6679.toInt()) {
-                adb.doDisconnect(); rawShowPage(currentTitle); buildAdbShellPage()
-            }
-        }
-
-        // ── Shell section (connected only) ────────────────────────────────────
         if (adb.state == AdbManager.AdbState.CONNECTED) {
+            // ── Connected: SHELL at top, disconnect at bottom ─────────────────
             addSectionHeader("SHELL")
 
             val etCmd = makeEditText("").also {
@@ -1801,7 +1762,43 @@ class SettingsPanelDialog(
                 pageJob = scope.launch {
                     val result = adb.executeShell(cmd)
                     tvOutput.text = result.output.ifEmpty { "(no output)" }
-                    if (adb.state != AdbManager.AdbState.CONNECTED) {
+                }
+            }
+
+            addSeparator()
+            addEntry("Disconnect", labelColor = 0xFFCF6679.toInt()) {
+                adb.doDisconnect(); rawShowPage(currentTitle); buildAdbShellPage()
+            }
+        } else {
+            // ── Not connected: status + connect ───────────────────────────────
+            val statusColor = if (adb.state == AdbManager.AdbState.CONNECTING) 0xFF888888.toInt()
+                              else 0xFFE53935.toInt()
+            val statusText = if (adb.state == AdbManager.AdbState.CONNECTING) "Connecting…"
+                             else "Not connected"
+            val tvStatus = android.widget.TextView(context).apply {
+                text = statusText; setTextColor(statusColor)
+                textSize = 11f; typeface = android.graphics.Typeface.DEFAULT_BOLD
+                setPadding((20 * dp).toInt(), (8 * dp).toInt(), (20 * dp).toInt(), (4 * dp).toInt())
+            }
+            body.addView(tvStatus)
+
+            val tvConnResult = android.widget.TextView(context).apply {
+                setTextColor(0xFF888888.toInt()); textSize = 10f
+                setPadding((20 * dp).toInt(), (2 * dp).toInt(), (20 * dp).toInt(), (2 * dp).toInt())
+            }
+            body.addView(tvConnResult)
+
+            addEntry("Connect", R.drawable.ic_install, labelColor = 0xFFE53935.toInt()) {
+                tvConnResult.setTextColor(0xFF888888.toInt())
+                tvConnResult.text = "Starting shell…"
+                tvStatus.text = "Connecting…"; tvStatus.setTextColor(0xFF888888.toInt())
+                pageJob = scope.launch {
+                    val result = adb.doConnect()
+                    if (result.success) {
+                        rawShowPage(currentTitle); buildAdbShellPage()
+                    } else {
+                        tvConnResult.setTextColor(0xFFE53935.toInt())
+                        tvConnResult.text = result.error ?: "Connection failed"
                         tvStatus.text = "Not connected"; tvStatus.setTextColor(0xFFE53935.toInt())
                     }
                 }

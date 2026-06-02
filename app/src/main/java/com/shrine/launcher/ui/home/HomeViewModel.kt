@@ -184,10 +184,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         )
     }
 
+    var recentlyInstalledPackage: String? = null
+
     fun getAppsForRow(row: LauncherRow): List<AppInfo> {
         if (row.kind != RowKind.CATEGORY) return emptyList()
         return when (row.categoryType) {
-            CategoryType.ALL_APPS        -> _allApps.value ?: emptyList()
+            CategoryType.ALL_APPS        -> {
+                val apps = _allApps.value ?: emptyList()
+                val pkg = recentlyInstalledPackage
+                if (pkg != null) {
+                    val newApp = apps.find { it.packageName == pkg }
+                    if (newApp != null) listOf(newApp) + apps.filter { it.packageName != pkg }
+                    else apps
+                } else apps
+            }
             CategoryType.RECENTLY_OPENED -> _recentApps.value ?: emptyList()
             CategoryType.INSTALL         -> listOf(installAppInfo)
             CategoryType.FAVORITES       -> {
