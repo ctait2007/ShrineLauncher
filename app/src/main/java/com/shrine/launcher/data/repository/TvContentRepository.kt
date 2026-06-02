@@ -413,41 +413,6 @@ class TvContentRepository(private val context: Context) {
 
     // ── Helpers ────────────────────────────────────────────────────────────────
 
-    // ── Channel-name routing helper ───────────────────────────────────────────
-
-    /** Returns the set of package names that own a browsable channel whose display
-     *  name contains "continue" (case-insensitive), e.g. "Continue Watching". */
-    private fun buildContinueWatchingPackages(): Set<String> {
-        val packages = mutableSetOf<String>()
-        return try {
-            // Fire TV rejects WHERE clauses on the channels URI ("Selection not allowed"),
-            // so query all channels and filter browsable + display name in Kotlin.
-            val c = cr.query(
-                TvContractCompat.Channels.CONTENT_URI,
-                arrayOf(
-                    TvContractCompat.Channels.COLUMN_PACKAGE_NAME,
-                    TvContractCompat.Channels.COLUMN_DISPLAY_NAME,
-                    TvContractCompat.Channels.COLUMN_BROWSABLE
-                ),
-                null, null, null
-            ) ?: return packages
-            c.use {
-                while (it.moveToNext()) {
-                    val browsable = it.safeInt(TvContractCompat.Channels.COLUMN_BROWSABLE)
-                    if (browsable == 0) continue
-                    val pkg  = it.safeString(TvContractCompat.Channels.COLUMN_PACKAGE_NAME) ?: continue
-                    val name = it.safeString(TvContractCompat.Channels.COLUMN_DISPLAY_NAME) ?: continue
-                    Log.d(TAG, "Channel: pkg=$pkg name=$name browsable=$browsable")
-                    if (name.lowercase().contains("continue")) packages += pkg
-                }
-            }
-            packages
-        } catch (e: Exception) {
-            Log.w(TAG, "buildContinueWatchingPackages failed: ${e.message}")
-            packages
-        }
-    }
-
     private val channelPkgCache  = mutableMapOf<Long, String>()
     private val channelNameCache = mutableMapOf<Long, String>()
 

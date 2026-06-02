@@ -58,12 +58,12 @@ class HomeActivity : AppCompatActivity() {
         setupClock()
         setupObservers()
         setupButtons()
-        registerPackageReceiver()
         requestTvPermissions()
     }
 
     override fun onStart() {
         super.onStart()
+        registerPackageReceiver()
         try {
             contentResolver.registerContentObserver(
                 androidx.tvprovider.media.tv.TvContractCompat.WatchNextPrograms.CONTENT_URI,
@@ -266,7 +266,7 @@ class HomeActivity : AppCompatActivity() {
         clockTimer = Timer()
         clockTimer?.scheduleAtFixedRate(object : TimerTask() {
             override fun run() { runOnUiThread { updateClock() } }
-        }, 0, 30_000)
+        }, 0, 60_000)
     }
 
     private fun applyClock(prefs: LauncherPrefs) {
@@ -321,18 +321,22 @@ class HomeActivity : AppCompatActivity() {
     private fun showRowSettingsDialog(row: LauncherRow) {
         val apps = vm.allApps.value
         if (apps.isNullOrEmpty()) {
-            androidx.lifecycle.Observer<List<AppInfo>> { loaded ->
-                if (loaded.isNotEmpty()) {
-                    RowSettingsDialog(
-                        context   = this,
-                        row       = row,
-                        allApps   = loaded,
-                        onChanged = { vm.loadAll() }
-                    ).show()
+            // Apps not loaded yet — observe once, show dialog, then immediately remove the observer
+            // to avoid leaking it and potentially opening the dialog multiple times.
+            val obs = object : androidx.lifecycle.Observer<List<AppInfo>> {
+                override fun onChanged(loaded: List<AppInfo>) {
+                    if (loaded.isNotEmpty()) {
+                        vm.allApps.removeObserver(this)
+                        RowSettingsDialog(
+                            context   = this@HomeActivity,
+                            row       = row,
+                            allApps   = loaded,
+                            onChanged = { vm.loadAll() }
+                        ).show()
+                    }
                 }
-            }.also { obs ->
-                vm.allApps.observe(this, obs)
             }
+            vm.allApps.observe(this, obs)
         } else {
             RowSettingsDialog(
                 context   = this,
@@ -394,6 +398,5 @@ class HomeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         clockTimer?.cancel()
-        try { unregisterReceiver(packageReceiver) } catch (e: Exception) { }
     }
 }

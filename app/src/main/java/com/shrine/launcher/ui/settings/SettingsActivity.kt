@@ -229,8 +229,8 @@ class SettingsActivity : AppCompatActivity() {
             changes.add("Corner roundness: ${snap.cardCornerRadiusPercent}% → ${prefs.cardCornerRadiusPercent}%")
         if (prefs.rowsBottomMarginPercent != snap.rowsBottomMarginPercent)
             changes.add("Bottom margin: ${snap.rowsBottomMarginPercent}% → ${prefs.rowsBottomMarginPercent}%")
-        if (prefs.rowStartPaddingPercent != snap.rowStartPaddingPercent)
-            changes.add("Start margin: ${snap.rowStartPaddingPercent}% → ${prefs.rowStartPaddingPercent}%")
+        if (prefs.rowStartPaddingDp != snap.rowStartPaddingDp)
+            changes.add("Start margin: ${snap.rowStartPaddingDp}dp → ${prefs.rowStartPaddingDp}dp")
         if (prefs.wallpaperUri != snap.wallpaperUri)
             changes.add("Wallpaper changed")
         if (prefs.clockEnabled != snap.clockEnabled)
@@ -505,8 +505,8 @@ class SettingsActivity : AppCompatActivity() {
             appearanceDirty = true
         })
 
-        binding.sbRowStartPadding.progress = prefs.rowStartPaddingPercent
-        binding.tvRowStartPaddingValue.text = "${prefs.rowStartPaddingPercent}%"
+        binding.sbRowStartPadding.progress = prefs.rowStartPaddingDp
+        binding.tvRowStartPaddingValue.text = "${prefs.rowStartPaddingDp}dp"
         binding.sbRowStartPadding.setOnSeekBarChangeListener(seekListener {
             binding.tvRowStartPaddingValue.text = "$it%"
             appearanceDirty = true
@@ -550,7 +550,6 @@ class SettingsActivity : AppCompatActivity() {
             iconSizeLabel             = selectedSize,
             cardCornerRadiusPercent   = binding.sbCornerRadius.progress * 10,
             rowsBottomMarginPercent   = binding.sbBottomMargin.progress,
-            rowStartPaddingPercent    = binding.sbRowStartPadding.progress,
             rowStartPaddingDp         = startMarginDp,
             rowSpacingPercent         = binding.sbRowSpacing.progress,
             itemSpacingPercent        = binding.sbItemSpacing.progress,

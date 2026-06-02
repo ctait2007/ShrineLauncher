@@ -101,10 +101,15 @@ class RowSettingsDialog(
             .filter { it.packageName in selectedPkgs }
             .map { it.packageName }
             .toMutableList()
+        // Preserve the original categoryType unless the row has explicit app selections
+        // (in which case it becomes a custom list). Avoids silently converting ALL_APPS
+        // or FAVOURITES rows to CUSTOM when the user opens settings and saves unchanged.
+        val newCategoryType = if (finalApps.isNotEmpty()) CategoryType.CUSTOM
+                              else row.categoryType
         repo.updateRow(row.copy(
             title        = etTitle.text.toString().ifBlank { row.title },
             apps         = finalApps,
-            categoryType = CategoryType.CUSTOM
+            categoryType = newCategoryType
         ))
         onChanged(); dismiss()
     }

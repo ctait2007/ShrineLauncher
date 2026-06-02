@@ -62,6 +62,7 @@ class RowsAdapter(
         private var panelOpen        = false
         private var isChannel        = false
         private var firstRowItemView: View? = null
+        private var panelSlideDp     = 136f  // matches expandPanel value; used by collapsePanel
 
         fun bind(item: RowItem) {
             val row = when (item) {
@@ -202,6 +203,7 @@ class RowsAdapter(
                 (btnIconSize.layoutParams as? ViewGroup.MarginLayoutParams)
                     ?.marginStart = (8 * dp).toInt()
             }
+            panelSlideDp = rowContentSlideDp  // remember for collapsePanel
             btnIconSize.requestLayout()
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
@@ -251,7 +253,7 @@ class RowsAdapter(
             sidePanel.clearAnimation()
             rowContent.clearAnimation()
             sidePanel.animate()
-                .translationX(-136f * dp)
+                .translationX(-panelSlideDp * dp)
                 .setDuration(150)
                 .setInterpolator(android.view.animation.DecelerateInterpolator())
                 .withEndAction {

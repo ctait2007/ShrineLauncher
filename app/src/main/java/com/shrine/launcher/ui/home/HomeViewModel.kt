@@ -11,6 +11,7 @@ import com.shrine.launcher.data.repository.PreferencesRepository
 import com.shrine.launcher.data.repository.TvContentRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.delay
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
@@ -76,23 +77,33 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun loadAll() {
         viewModelScope.launch {
-            _allApps.value    = appRepo.getAllApps()
-            _recentApps.value = appRepo.getRecentlyUsed()
-            val rows = prefRepo.loadRows()
-            val cwRow = rows.find { it.channelType == ChannelType.CONTINUE_WATCHING }
-            val wnRow = rows.find { it.channelType == ChannelType.WATCH_NEXT }
-            _continueWatching.value = tvRepo.getWatchNextPrograms(
+            // Load everything on IO, then post all LiveData together on the main thread
+            // to avoid races where rows render before their app/content data is ready.
+            val p          = withContext(Dispatchers.IO) { prefRepo.loadPrefs() }
+            val allApps    = withContext(Dispatchers.IO) { appRepo.getAllApps() }
+            val recentApps = withContext(Dispatchers.IO) { appRepo.getRecentlyUsed() }
+            val favs       = withContext(Dispatchers.IO) { prefRepo.loadFavourites() }
+            val rows       = p.rows
+            val cwRow      = rows.find { it.channelType == ChannelType.CONTINUE_WATCHING }
+            val wnRow      = rows.find { it.channelType == ChannelType.WATCH_NEXT }
+            val cw         = tvRepo.getWatchNextPrograms(
                 ChannelType.CONTINUE_WATCHING, cwRow?.allowedPackages ?: emptyList())
-            _watchNext.value = tvRepo.getWatchNextPrograms(
+            val wn         = tvRepo.getWatchNextPrograms(
                 ChannelType.WATCH_NEXT, wnRow?.allowedPackages ?: emptyList())
-            _newForYou.value = tvRepo.getPreviewPrograms()
+            val nfy        = tvRepo.getPreviewPrograms()
+
+            // All posted atomically on the main thread
+            _prefs.value            = p
+            _rows.value             = rows.filter { it.isVisible }
+            _widgets.value          = p.pinnedWidgets.sortedBy { it.position }
+            _theme.value            = p.theme
+            _favourites.value       = favs
+            _allApps.value          = allApps
+            _recentApps.value       = recentApps
+            _continueWatching.value = cw
+            _watchNext.value        = wn
+            _newForYou.value        = nfy
         }
-        val p = prefRepo.loadPrefs()
-        _prefs.value    = p
-        _rows.value     = p.rows.filter { it.isVisible }
-        _widgets.value  = p.pinnedWidgets.sortedBy { it.position }
-        _theme.value    = p.theme
-        _favourites.value = prefRepo.loadFavourites()
     }
 
     fun launchApp(packageName: String) = appRepo.launchApp(packageName)
@@ -137,7 +148,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val all = (_allApps.value ?: emptyList()).associateBy { it.packageName }
                 row.apps.mapNotNull { all[it] }
             }
-            CategoryType.SUGGESTIONS -> (_allApps.value ?: emptyList()).take(12)
             null -> emptyList()
         }
     }

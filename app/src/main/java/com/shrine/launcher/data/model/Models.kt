@@ -31,15 +31,13 @@ enum class CategoryType {
     ALL_APPS,
     FAVORITES,
     CUSTOM,
-    RECENTLY_OPENED,
-    SUGGESTIONS
+    RECENTLY_OPENED
 }
 
 enum class ChannelType {
     CONTINUE_WATCHING,  // TvContract WatchNextPrograms
     WATCH_NEXT,         // alias — same source, different label
-    NEW_FOR_YOU,        // PreviewPrograms from installed apps
-    CUSTOM_CHANNEL      // user-defined channel backed by a specific app
+    NEW_FOR_YOU         // PreviewPrograms from installed apps
 }
 
 // ── Unified row descriptor ────────────────────────────────────────────────────
@@ -120,8 +118,6 @@ data class LauncherPrefs(
     val clockEnabled: Boolean               = true,
     val dateEnabled: Boolean                = true,
     val clockFormat24h: Boolean             = false,
-    val focusScaleEnabled: Boolean          = true,
-    val focusScaleFactor: Float             = 1.12f,
     val rowLabelStyle: String               = "ABOVE",
     val iconSizeLabel: String               = "M",      // S=80 M=108 L=160 XL=200
     val cardCornerRadiusPercent: Int        = 50,
@@ -130,7 +126,6 @@ data class LauncherPrefs(
     val wallpaperIntervalSeconds: Int       = 300,         // 5 min default
     val rowsBottomMarginPercent: Int        = 15,
     val rowStartPaddingDp: Int              = 24,
-    val rowStartPaddingPercent: Int         = 20,
     val rowSpacingPercent: Int              = 20,  // vertical space between rows 0-100%
     val itemSpacingPercent: Int             = 10,  // horizontal space between items 0-100%
     val animationsEnabled: Boolean          = true,
