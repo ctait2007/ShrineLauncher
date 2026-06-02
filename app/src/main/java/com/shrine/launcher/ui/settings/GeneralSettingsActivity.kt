@@ -81,7 +81,7 @@ class GeneralSettingsActivity : BaseSettingsActivity() {
     }
 
     private fun launchInstaller(version: String) {
-        val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$version/ShrineLauncher-debug.apk"
+        val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$version/shrine-v$version-beta.apk"
         val intent = Intent(this, com.shrine.launcher.ui.installer.AppInstallerActivity::class.java)
         intent.putExtra("install_url", url)
         startActivity(intent)

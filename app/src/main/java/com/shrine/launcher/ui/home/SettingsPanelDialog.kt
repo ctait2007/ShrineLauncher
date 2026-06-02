@@ -21,7 +21,6 @@ import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
-import android.widget.Switch
 import android.widget.TextView
 import android.widget.Toast
 import com.shrine.launcher.R
@@ -137,7 +136,7 @@ class SettingsPanelDialog(
     }
 
     private fun showPage(title: String?, push: Boolean = true, builder: () -> Unit) {
-        if (push && currentBuilder != {}) {
+        if (push) {
             navStack.addLast(NavEntry(currentTitle, currentBuilder))
         }
         currentTitle   = title
@@ -908,7 +907,7 @@ class SettingsPanelDialog(
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked))
         }
 
-        addEntry("Set as Default Launcher", subtitle = "Opens system home-app picker") {
+        addEntry("Set as Default Launcher") {
             try {
                 context.startActivity(Intent(Intent.ACTION_MAIN).apply {
                     addCategory(Intent.CATEGORY_HOME)
@@ -952,7 +951,7 @@ class SettingsPanelDialog(
                     .setTitle("Update available")
                     .setMessage("v$tag is available (you have v$current)")
                     .setPositiveButton("Install") { _, _ ->
-                        val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$tag/ShrineLauncher-debug.apk"
+                        val url = "https://github.com/ctait2007/ShrineLauncher/releases/download/v$tag/shrine-v$tag-beta.apk"
                         context.startActivity(Intent(context, AppInstallerActivity::class.java).apply {
                             putExtra("install_url", url)
                             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -963,24 +962,6 @@ class SettingsPanelDialog(
         }
     }
 
-    // Overload for addEntry with subtitle (used in General)
-    private fun addEntry(label: String, subtitle: String? = null, onClick: () -> Unit): View {
-        val v = addEntry(label, onClick = onClick)
-        if (subtitle != null) {
-            val sub = v.findViewById<TextView>(R.id.tvEntryLabel)
-            // append subtitle as smaller text below label using a separate TextView
-            val tvSub = TextView(context)
-            tvSub.text = subtitle
-            tvSub.setTextColor(0xFF555555.toInt())
-            tvSub.textSize = 11f
-            val lp2 = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-            lp2.marginStart = sub.paddingStart
-            tvSub.layoutParams = lp2
-            // insert below the entry row
-        }
-        return v
-    }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // PAGE: APPEARANCE HUB
