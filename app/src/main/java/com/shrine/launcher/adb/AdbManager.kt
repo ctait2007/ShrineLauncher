@@ -14,6 +14,8 @@ import org.bouncycastle.jce.provider.BouncyCastleProvider
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.io.File
 import java.math.BigInteger
+import java.net.Inet4Address
+import java.net.NetworkInterface
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
 import java.security.PrivateKey
@@ -40,6 +42,19 @@ class AdbManager private constructor(context: Context) : AbsAdbConnectionManager
     companion object {
         const val DEFAULT_HOST = "localhost"
         const val DEFAULT_PORT = 5555
+
+        /** Returns the device's own WiFi IPv4 address, falling back to localhost. */
+        fun getLocalIp(): String {
+            try {
+                for (iface in NetworkInterface.getNetworkInterfaces()) {
+                    if (iface.isLoopback || !iface.isUp) continue
+                    for (addr in iface.inetAddresses) {
+                        if (addr is Inet4Address) return addr.hostAddress ?: continue
+                    }
+                }
+            } catch (_: Exception) {}
+            return DEFAULT_HOST
+        }
 
         @Volatile private var instance: AdbManager? = null
         fun getInstance(context: Context): AdbManager =
@@ -130,7 +145,7 @@ class AdbManager private constructor(context: Context) : AbsAdbConnectionManager
             }
         }
 
-    fun savedHost(): String = prefs.getString("adb_host", DEFAULT_HOST) ?: DEFAULT_HOST
+    fun savedHost(): String = prefs.getString("adb_host", null) ?: getLocalIp()
     fun savedPort(): Int    = prefs.getInt("adb_port", DEFAULT_PORT)
 
     // ── Data classes ───────────────────────────────────────────────────────────
