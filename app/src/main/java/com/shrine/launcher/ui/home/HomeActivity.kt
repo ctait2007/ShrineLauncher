@@ -575,13 +575,17 @@ class HomeActivity : AppCompatActivity() {
             }
 
             if (useTmp) {
-                val result = adb.executeShell("pm install -r $tmpPath")
+                val result = adb.executeShell("pm install -r $tmpPath", 60_000L)
                 adb.executeShell("rm -f $tmpPath")
                 val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
                 Toast.makeText(this@HomeActivity,
                     if (ok) "APK installed successfully"
                     else "Install failed: ${result.output}",
                     Toast.LENGTH_LONG).show()
+                if (ok) {
+                    kotlinx.coroutines.delay(1000)
+                    vm.loadAll()
+                }
             } else {
                 try {
                     val fileUri = androidx.core.content.FileProvider.getUriForFile(

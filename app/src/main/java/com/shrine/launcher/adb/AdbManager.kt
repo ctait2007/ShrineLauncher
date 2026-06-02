@@ -73,16 +73,17 @@ class AdbManager private constructor(private val appContext: Context) {
         state = AdbState.DISCONNECTED
     }
 
-    suspend fun executeShell(command: String): ShellResult = withContext(Dispatchers.IO) {
+    suspend fun executeShell(command: String, timeoutMs: Long = 10_000L): ShellResult = withContext(Dispatchers.IO) {
         if (!isConnected()) return@withContext ShellResult("Not connected", -1)
         try {
             val sentinel = "$SENTINEL_PREFIX${System.currentTimeMillis()}"
-            shellWriter!!.write("($command) ; echo \"$sentinel:\$?\"")
+            // 2>&1 ensures stderr is captured alongside stdout
+            shellWriter!!.write("($command 2>&1) ; echo \"$sentinel:\$?\"")
             shellWriter!!.newLine()
             shellWriter!!.flush()
 
             val output = StringBuilder()
-            val deadline = System.currentTimeMillis() + 10_000L
+            val deadline = System.currentTimeMillis() + timeoutMs
             while (System.currentTimeMillis() < deadline) {
                 if (shellReader!!.ready()) {
                     val line = shellReader!!.readLine() ?: break

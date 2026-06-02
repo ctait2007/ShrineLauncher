@@ -1686,11 +1686,15 @@ class SettingsPanelDialog(
 
                 tvStatus.text = "Installing…"
                 if (useTmp) {
-                    val result = adb.executeShell("pm install -r $tmpPath")
+                    val result = adb.executeShell("pm install -r $tmpPath", 60_000L)
                     adb.executeShell("rm -f $tmpPath")
                     val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
                     tvStatus.text = if (ok) "✓ Installed successfully"
                                     else "Install failed: ${result.output}"
+                    if (ok) {
+                        kotlinx.coroutines.delay(1000)
+                        onSettingsChanged?.invoke()
+                    }
                 } else {
                     tvStatus.text = "Opening system installer…"
                     try {
