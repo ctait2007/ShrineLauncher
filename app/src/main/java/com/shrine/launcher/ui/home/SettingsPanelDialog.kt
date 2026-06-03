@@ -34,7 +34,6 @@ import com.shrine.launcher.data.model.RowKind
 import com.shrine.launcher.data.repository.AppRepository
 import com.shrine.launcher.data.repository.PreferencesRepository
 import com.shrine.launcher.data.repository.TvContentRepository
-import com.shrine.launcher.ui.installer.AppInstallerActivity
 import com.shrine.launcher.ui.settings.ManageSettingsActivity
 import com.shrine.launcher.ui.settings.WallpaperAppearanceActivity
 import com.shrine.launcher.util.ConfigManager
@@ -465,13 +464,13 @@ class SettingsPanelDialog(
 
     private fun buildMainMenu() {
         addSectionHeader("SETTINGS")
-        addEntry("All Apps", R.drawable.ic_grid) {
+        addEntry("All Apps", R.drawable.ic_grid, showArrow = true) {
             navigateTo("All Apps") { buildAllApps() }
         }
-        addEntry("Edit Categories", R.drawable.ic_settings_rows) {
+        addEntry("Edit Categories", R.drawable.ic_settings_rows, showArrow = true) {
             navigateTo("Edit Categories") { buildEditCategories() }
         }
-        addEntry("Edit Channels", R.drawable.ic_channel) {
+        addEntry("Edit Channels", R.drawable.ic_channel, showArrow = true) {
             navigateTo("Edit Channels") { buildEditChannels() }
         }
         addEntry("Shrine Settings", R.drawable.ic_settings, showArrow = true) {
@@ -599,7 +598,9 @@ class SettingsPanelDialog(
         val sizeOptionViews = mutableListOf<View>()
 
         val sizeHeaderEntry = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}",
-            R.drawable.ic_grid, showArrow = false) { }
+            R.drawable.ic_grid, showArrow = true) { }
+        val sizeArrow = sizeHeaderEntry.findViewById<ImageView>(R.id.ivEntryArrow)
+        sizeArrow.rotation = 90f
 
         // Pre-create size option rows (hidden initially)
         sizeLabels.forEachIndexed { i, sz ->
@@ -621,6 +622,7 @@ class SettingsPanelDialog(
                 prefRepo.updateRow(row); notifyChanged()
                 // Collapse and update header label
                 sizeExpanded = false
+                sizeArrow.rotation = 90f
                 sizeOptionViews.forEach { it.visibility = View.GONE }
                 sizeHeaderEntry.findViewById<TextView>(R.id.tvEntryLabel)?.text =
                     "Icon size: ${sizeDisplayName(sz)}"
@@ -637,6 +639,7 @@ class SettingsPanelDialog(
 
         sizeHeaderEntry.setOnClickListener {
             sizeExpanded = !sizeExpanded
+            sizeArrow.rotation = if (sizeExpanded) -90f else 90f
             sizeOptionViews.forEach { it.visibility = if (sizeExpanded) View.VISIBLE else View.GONE }
         }
 
@@ -1036,7 +1039,9 @@ class SettingsPanelDialog(
         val chSizeNames  = arrayOf("Global", "S — Small", "M — Medium", "L — Large", "XL — Extra Large")
         var chSizeExpanded = false
         val chSizeOptionViews = mutableListOf<View>()
-        val chSizeHeader = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", R.drawable.ic_grid, showArrow = false) { }
+        val chSizeHeader = addEntry("Icon size: ${sizeDisplayName(row.iconSizeLabelOverride)}", R.drawable.ic_grid, showArrow = true) { }
+        val chSizeArrow = chSizeHeader.findViewById<ImageView>(R.id.ivEntryArrow)
+        chSizeArrow.rotation = 90f
         chSizeLabels.forEachIndexed { i, sz ->
             val ov  = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
             val tvO = ov.findViewById<TextView>(R.id.tvEntryLabel)
@@ -1051,6 +1056,7 @@ class SettingsPanelDialog(
                 row = row.copy(iconSizeLabelOverride = sz)
                 prefRepo.updateRow(row); notifyChanged()
                 chSizeExpanded = false
+                chSizeArrow.rotation = 90f
                 chSizeOptionViews.forEach { it.visibility = View.GONE }
                 chSizeHeader.findViewById<TextView>(R.id.tvEntryLabel)?.text = "Icon size: ${sizeDisplayName(sz)}"
             }
@@ -1058,6 +1064,7 @@ class SettingsPanelDialog(
         }
         chSizeHeader.setOnClickListener {
             chSizeExpanded = !chSizeExpanded
+            chSizeArrow.rotation = if (chSizeExpanded) -90f else 90f
             chSizeOptionViews.forEach { it.visibility = if (chSizeExpanded) View.VISIBLE else View.GONE }
         }
 
@@ -1345,10 +1352,70 @@ class SettingsPanelDialog(
                 updateInstallView?.let { btn ->
                     btn.visibility = View.VISIBLE
                     btn.setOnClickListener {
-                        context.startActivity(Intent(context, AppInstallerActivity::class.java).apply {
-                            putExtra("install_url", url)
-                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                        })
+                        btn.visibility = View.GONE
+                        updateStatusView?.let { it.text = "Downloading…"; it.setTextColor(0xFF888888.toInt()) }
+                        pageJob = scope.launch {
+                            val adb = AdbManager.getInstance(context)
+                            val tmpPath = "/data/local/tmp/shrine_install.apk"
+                            val useTmp = adb.isConnected() &&
+                                adb.executeShell("touch $tmpPath && chmod 666 $tmpPath").exitCode == 0
+                            val dest = if (useTmp) java.io.File(tmpPath)
+                                       else java.io.File(context.cacheDir, "shrine_install.apk")
+                            val downloaded = withContext(Dispatchers.IO) {
+                                try {
+                                    val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                                    conn.instanceFollowRedirects = true; conn.connect()
+                                    val total = conn.contentLength; var done = 0
+                                    conn.inputStream.use { inp ->
+                                        java.io.FileOutputStream(dest).use { out ->
+                                            val buf = ByteArray(8192); var n: Int
+                                            while (inp.read(buf).also { n = it } != -1) {
+                                                out.write(buf, 0, n); done += n
+                                                if (total > 0) {
+                                                    val pct = done * 100 / total
+                                                    withContext(Dispatchers.Main) { updateStatusView?.text = "Downloading… $pct%" }
+                                                }
+                                            }
+                                        }
+                                    }
+                                    conn.disconnect(); true
+                                } catch (e: Exception) { false }
+                            }
+                            if (!downloaded) {
+                                updateStatusView?.let { it.text = "Download failed"; it.setTextColor(0xFFCF6679.toInt()) }
+                                btn.visibility = View.VISIBLE; return@launch
+                            }
+                            updateStatusView?.text = "Installing…"
+                            if (useTmp) {
+                                val result = adb.executeShell("pm install -r $tmpPath", 60_000L)
+                                adb.executeShell("rm -f $tmpPath")
+                                val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
+                                if (ok) {
+                                    updateStatusView?.let { it.text = "✓ Installed — restarting…"; it.setTextColor(0xFF4CAF50.toInt()) }
+                                    kotlinx.coroutines.delay(1500)
+                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    }
+                                    context.startActivity(launchIntent)
+                                    android.os.Process.killProcess(android.os.Process.myPid())
+                                } else {
+                                    updateStatusView?.let { it.text = "Install failed: ${result.output}"; it.setTextColor(0xFFCF6679.toInt()) }
+                                    btn.visibility = View.VISIBLE
+                                }
+                            } else {
+                                updateStatusView?.let { it.text = "Opening system installer…"; it.setTextColor(0xFF888888.toInt()) }
+                                try {
+                                    val fileUri = androidx.core.content.FileProvider.getUriForFile(
+                                        context, "${context.packageName}.fileprovider", dest)
+                                    context.startActivity(Intent(Intent.ACTION_VIEW).apply {
+                                        setDataAndType(fileUri, "application/vnd.android.package-archive")
+                                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    })
+                                } catch (e: Exception) {
+                                    updateStatusView?.let { it.text = "Install failed: ${e.message}"; it.setTextColor(0xFFCF6679.toInt()) }
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -1423,7 +1490,9 @@ class SettingsPanelDialog(
         var intervalExpanded = false
         val intervalOptionViews = mutableListOf<View>()
 
-        val intervalHeader = addEntry("Slide interval: $currLabel") { }
+        val intervalHeader = addEntry("Slide interval: $currLabel", showArrow = true) { }
+        val intervalArrow = intervalHeader.findViewById<ImageView>(R.id.ivEntryArrow)
+        intervalArrow.rotation = 90f
         intervals.forEach { (secs, label) ->
             val ov = LayoutInflater.from(context).inflate(R.layout.item_panel_menu_entry, body, false)
             val tvO = ov.findViewById<TextView>(R.id.tvEntryLabel)
@@ -1436,13 +1505,14 @@ class SettingsPanelDialog(
             applyFocus(ov, tvO)
             ov.setOnClickListener {
                 prefRepo.savePrefs(prefRepo.loadPrefs().copy(wallpaperIntervalSeconds = secs)); notifyChanged()
-                intervalExpanded = false; intervalOptionViews.forEach { it.visibility = View.GONE }
+                intervalExpanded = false; intervalArrow.rotation = 90f; intervalOptionViews.forEach { it.visibility = View.GONE }
                 intervalHeader.findViewById<TextView>(R.id.tvEntryLabel)?.text = "Slide interval: $label"
             }
             intervalOptionViews.add(ov); body.addView(ov)
         }
         intervalHeader.setOnClickListener {
             intervalExpanded = !intervalExpanded
+            intervalArrow.rotation = if (intervalExpanded) -90f else 90f
             intervalOptionViews.forEach { it.visibility = if (intervalExpanded) View.VISIBLE else View.GONE }
         }
     }

@@ -87,7 +87,11 @@ class AppsAdapter(
                             onLeftFromFirst?.invoke(); true
                         } else false
                     }
-                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> false
+                    android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {
+                        val rv = itemView.parent as? RecyclerView
+                        val isLast = rv != null && adapterPosition == (rv.adapter?.itemCount ?: 0) - 1
+                        if (isLast) true else false
+                    }
                     else -> false
                 }
             }
