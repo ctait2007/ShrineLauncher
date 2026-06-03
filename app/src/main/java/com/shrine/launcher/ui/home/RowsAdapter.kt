@@ -1,5 +1,6 @@
 package com.shrine.launcher.ui.home
 
+import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -409,7 +410,8 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
+            val spacingPx = (itemSpacingDp * rvApps.resources.displayMetrics.density).toInt()
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context, spacingPx)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -450,7 +452,8 @@ class RowsAdapter(
             rvApps.setPadding(paddingPx, 0, 0, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
+            val spacingPx = (itemSpacingDp * rvApps.resources.displayMetrics.density).toInt()
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context, spacingPx)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -467,10 +470,24 @@ class RowsAdapter(
     }
 }
 
-private class FullPreloadLayoutManager(context: android.content.Context) :
-    LinearLayoutManager(context, HORIZONTAL, false) {
+private class FullPreloadLayoutManager(
+    context: android.content.Context,
+    private val spacingPx: Int
+) : LinearLayoutManager(context, HORIZONTAL, false) {
+
     override fun calculateExtraLayoutSpace(state: RecyclerView.State, extraLayoutSpace: IntArray) {
         extraLayoutSpace[0] = 100_000
         extraLayoutSpace[1] = 100_000
+    }
+
+    override fun requestChildRectangleOnScreen(
+        parent: RecyclerView, child: View, rect: Rect,
+        immediate: Boolean, focusedChildVisible: Boolean
+    ): Boolean {
+        if (child.right > width - paddingRight) {
+            parent.scrollBy(child.width + spacingPx, 0)
+            return true
+        }
+        return super.requestChildRectangleOnScreen(parent, child, rect, immediate, focusedChildVisible)
     }
 }
