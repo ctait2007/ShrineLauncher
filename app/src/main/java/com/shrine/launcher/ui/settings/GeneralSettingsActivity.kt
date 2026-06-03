@@ -129,9 +129,14 @@ class GeneralSettingsActivity : BaseSettingsActivity() {
                 if (ok) {
                     updateSubtitle?.text = "✓ Installed — restarting…"
                     delay(1500)
-                    packageManager.getLaunchIntentForPackage(packageName)?.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-                    }?.let { startActivity(it) }
+                    val started = adb.executeShell("am start -n $packageName/.ui.home.HomeActivity")
+                    val amOk = started.exitCode == 0 || started.output.contains("Starting:", ignoreCase = true)
+                    if (!amOk) {
+                        packageManager.getLaunchIntentForPackage(packageName)?.apply {
+                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                        }?.let { startActivity(it) }
+                    }
+                    delay(1500)
                     android.os.Process.killProcess(android.os.Process.myPid())
                 } else {
                     updateSubtitle?.text = "Install failed: ${result.output}"

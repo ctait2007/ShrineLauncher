@@ -1,6 +1,5 @@
 package com.shrine.launcher.ui.home
 
-import android.graphics.Rect
 import android.graphics.drawable.GradientDrawable
 import android.view.KeyEvent
 import android.view.LayoutInflater
@@ -406,12 +405,13 @@ class RowsAdapter(
                 onFocused           = { onRowFocused(item.row.title) },
                 onLeftFromFirst     = { triggerPanelOpen() }
             )
-            val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
-            rvApps.setPadding(paddingPx, 0, 0, 0)
+            val density = rvApps.resources.displayMetrics.density
+            val paddingPx = (rowStartPaddingDp * density).toInt()
+            val peekPx = (effectiveIconSize * 0.3f * density).toInt()
+            rvApps.setPadding(paddingPx, 0, peekPx, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            val spacingPx = (itemSpacingDp * rvApps.resources.displayMetrics.density).toInt()
-            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context, spacingPx)
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -448,12 +448,13 @@ class RowsAdapter(
                 onFocused           = { onRowFocused(item.row.title) },
                 onLeftFromFirst     = { triggerPanelOpen() }
             )
-            val paddingPx = (rowStartPaddingDp * rvApps.resources.displayMetrics.density).toInt()
-            rvApps.setPadding(paddingPx, 0, 0, 0)
+            val density = rvApps.resources.displayMetrics.density
+            val paddingPx = (rowStartPaddingDp * density).toInt()
+            val peekPx = (effectiveIconSize * 0.3f * density).toInt()
+            rvApps.setPadding(paddingPx, 0, peekPx, 0)
             rvApps.clipToPadding = false
             rvApps.clipChildren = false
-            val spacingPx = (itemSpacingDp * rvApps.resources.displayMetrics.density).toInt()
-            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context, spacingPx)
+            rvApps.layoutManager = FullPreloadLayoutManager(rvApps.context)
             addItemSpacingDecoration()
             rvApps.adapter = adapter
             rvApps.setHasFixedSize(false)
@@ -470,25 +471,10 @@ class RowsAdapter(
     }
 }
 
-private class FullPreloadLayoutManager(
-    context: android.content.Context,
-    private val spacingPx: Int
-) : LinearLayoutManager(context, HORIZONTAL, false) {
-
+private class FullPreloadLayoutManager(context: android.content.Context) :
+    LinearLayoutManager(context, HORIZONTAL, false) {
     override fun calculateExtraLayoutSpace(state: RecyclerView.State, extraLayoutSpace: IntArray) {
         extraLayoutSpace[0] = 100_000
         extraLayoutSpace[1] = 100_000
-    }
-
-    override fun requestChildRectangleOnScreen(
-        parent: RecyclerView, child: View, rect: Rect,
-        immediate: Boolean, focusedChildVisible: Boolean
-    ): Boolean {
-        if (child.right > width - paddingRight) {
-            if (immediate) parent.scrollBy(child.width + spacingPx, 0)
-            else parent.smoothScrollBy(child.width + spacingPx, 0)
-            return true
-        }
-        return super.requestChildRectangleOnScreen(parent, child, rect, immediate, focusedChildVisible)
     }
 }

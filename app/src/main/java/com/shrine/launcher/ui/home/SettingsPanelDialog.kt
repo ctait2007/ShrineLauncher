@@ -1391,10 +1391,14 @@ class SettingsPanelDialog(
                                 if (ok) {
                                     updateStatusView?.let { it.text = "✓ Installed — restarting…"; it.setTextColor(0xFF4CAF50.toInt()) }
                                     kotlinx.coroutines.delay(1500)
-                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                    val started = adb.executeShell("am start -n ${context.packageName}/.ui.home.HomeActivity")
+                                    val amOk = started.exitCode == 0 || started.output.contains("Starting:", ignoreCase = true)
+                                    if (!amOk) {
+                                        context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
+                                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }?.let { context.startActivity(it) }
                                     }
-                                    context.startActivity(launchIntent)
+                                    kotlinx.coroutines.delay(1500)
                                     android.os.Process.killProcess(android.os.Process.myPid())
                                 } else {
                                     updateStatusView?.let { it.text = "Install failed: ${result.output}"; it.setTextColor(0xFFCF6679.toInt()) }
