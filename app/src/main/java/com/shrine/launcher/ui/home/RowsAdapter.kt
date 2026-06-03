@@ -485,7 +485,8 @@ private class FullPreloadLayoutManager(
         immediate: Boolean, focusedChildVisible: Boolean
     ): Boolean {
         if (child.right > width - paddingRight) {
-            parent.scrollBy(child.width + spacingPx, 0)
+            if (immediate) parent.scrollBy(child.width + spacingPx, 0)
+            else parent.smoothScrollBy(child.width + spacingPx, 0)
             return true
         }
         return super.requestChildRectangleOnScreen(parent, child, rect, immediate, focusedChildVisible)
