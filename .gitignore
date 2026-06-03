@@ -22,6 +22,8 @@ shrine-debug.jks
 # Generated assets (produced by .github/assets_setup.py — never commit)
 app/src/main/res/mipmap-*/
 app/src/main/res/drawable-*/
+# drawable-nodpi holds hand-authored assets (splash sprite sheet) — do not ignore
+!app/src/main/res/drawable-nodpi/
 app/src/main/res/drawable/ic_launcher_background.xml
 app/src/main/res/drawable/ic_launcher_foreground.xml
 .claude/worktrees/

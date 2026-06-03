@@ -36,11 +36,10 @@
         android:banner="@drawable/banner">
 
         <activity
-            android:name=".ui.home.HomeActivity"
+            android:name=".ui.splash.SplashActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:windowSoftInputMode="stateUnspecified|adjustPan">
+            android:configChanges="keyboard|keyboardHidden|navigation">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -48,6 +47,13 @@
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".ui.home.HomeActivity"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="stateUnspecified|adjustPan" />
 
         <activity android:name=".ui.settings.SettingsActivity"
             android:exported="false" android:label="@string/settings_title" />
