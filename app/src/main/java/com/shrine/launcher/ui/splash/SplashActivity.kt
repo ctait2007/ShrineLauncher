@@ -113,7 +113,7 @@ class SplashActivity : AppCompatActivity() {
             300L, 300L,               // frames  5-6
             250L, 250L, 250L, 250L,   // frames  7-10
             200L, 200L, 200L, 200L,   // frames 11-14
-            300L, 1050L               // frames 15-16
+            300L, 300L                // frames 15-16
         )
 
         // Survives configuration changes within this process lifetime.

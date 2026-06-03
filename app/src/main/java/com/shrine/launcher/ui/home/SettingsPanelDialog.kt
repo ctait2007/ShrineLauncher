@@ -1391,7 +1391,7 @@ class SettingsPanelDialog(
                                 if (ok) {
                                     updateStatusView?.let { it.text = "✓ Installed — restarting…"; it.setTextColor(0xFF4CAF50.toInt()) }
                                     kotlinx.coroutines.delay(1500)
-                                    val started = adb.executeShell("am start -n ${context.packageName}/.ui.home.HomeActivity")
+                                    val started = adb.executeShell("am start -n ${context.packageName}/.ui.splash.SplashActivity")
                                     val amOk = started.exitCode == 0 || started.output.contains("Starting:", ignoreCase = true)
                                     if (!amOk) {
                                         context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {

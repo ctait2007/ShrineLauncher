@@ -129,7 +129,7 @@ class GeneralSettingsActivity : BaseSettingsActivity() {
                 if (ok) {
                     updateSubtitle?.text = "✓ Installed — restarting…"
                     delay(1500)
-                    val started = adb.executeShell("am start -n $packageName/.ui.home.HomeActivity")
+                    val started = adb.executeShell("am start -n $packageName/.ui.splash.SplashActivity")
                     val amOk = started.exitCode == 0 || started.output.contains("Starting:", ignoreCase = true)
                     if (!amOk) {
                         packageManager.getLaunchIntentForPackage(packageName)?.apply {

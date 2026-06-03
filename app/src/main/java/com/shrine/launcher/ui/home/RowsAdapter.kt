@@ -360,6 +360,14 @@ class RowsAdapter(
         }
 
         private fun triggerPanelOpen() {
+            // Reset every visible row to card 0 so focus is always clean after panel closes
+            (itemView.parent as? RecyclerView)?.let { rv ->
+                for (i in 0 until rv.childCount) {
+                    rv.getChildAt(i)
+                        ?.findViewById<RecyclerView>(R.id.rvApps)
+                        ?.scrollToPosition(0)
+                }
+            }
             if (!allPanelsOpen) {
                 allPanelsOpen = true
                 // Expand this row with focus, all others without
