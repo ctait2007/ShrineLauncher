@@ -4,12 +4,10 @@
     android:layout_height="match_parent"
     android:background="#000000">
 
-    <ImageView
-        android:id="@+id/ivSplash"
+    <VideoView
+        android:id="@+id/videoSplash"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_gravity="center"
-        android:scaleType="fitCenter"
-        android:contentDescription="@null" />
+        android:layout_gravity="center" />
 
 </FrameLayout>
