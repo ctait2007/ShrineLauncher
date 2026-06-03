@@ -1183,13 +1183,11 @@ class SettingsPanelDialog(
 
         addEntry("Open", R.drawable.ic_channel) {
             if (app.packageName == "com.shrine.launcher.INSTALL_ROW") {
-                context.startActivity(Intent(context, AppInstallerActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
+                navigateTo("Install Apps") { buildInstallerPage() }
             } else {
                 appRepo.launchApp(app.packageName)
+                dismiss()
             }
-            dismiss()
         }
 
         val favLabel = if (isFav) "Remove from Favourites" else "Add to Favourites"
