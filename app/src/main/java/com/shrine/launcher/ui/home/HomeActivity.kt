@@ -47,6 +47,10 @@ class HomeActivity : AppCompatActivity() {
     // skip the full data reload and just restore idle timer — Projectivy uses 50 ms.
     private var lastPauseTime = 0L
 
+    // Double-back-to-screensaver: track the timestamp of the previous BACK press
+    // (Projectivy pattern: two presses within 400 ms → ambient/screensaver mode)
+    private var lastBackPressTime = 0L
+
     // Idle mode
     private val idleHandler = Handler(Looper.getMainLooper())
     private var isIdle = false
@@ -419,6 +423,15 @@ class HomeActivity : AppCompatActivity() {
     }
 
     private fun enterIdle() {
+        val prefs = vm.prefs.value
+        // Projectivy idle action: SCREENSAVER launches system ambient mode;
+        // BLANK_SCREEN (default) hides the launcher UI.
+        if (prefs?.idleAction == com.shrine.launcher.data.model.IdleAction.SCREENSAVER) {
+            launchScreensaver()
+            // launchScreensaver falls back to blank-screen if unavailable, so
+            // don't return — allow enterIdle to complete as blank-screen too.
+            return
+        }
         preIdleFocusedView = currentFocus
         activePanel?.dismiss()
         activePanel = null
@@ -802,12 +815,34 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_BACK) {
+            val prefs = vm.prefs.value
+            // Projectivy pattern: two BACK presses within 400 ms → screensaver
+            if (prefs?.doubleBackToScreensaver == true && !rowsAdapter.allPanelsOpen) {
+                val now = System.currentTimeMillis()
+                if (now - lastBackPressTime < 400L) {
+                    launchScreensaver()
+                    return true
+                }
+                lastBackPressTime = now
+            }
             if (rowsAdapter.allPanelsOpen) {
                 rowsAdapter.collapseAllPanels()
             }
             return true
         }
         return super.onKeyDown(keyCode, event)
+    }
+
+    /** Launch the system screensaver (Somnambulator). Falls back silently if unavailable. */
+    private fun launchScreensaver() {
+        val intent = android.content.Intent("android.intent.action.MAIN").apply {
+            setClassName("com.android.systemui", "com.android.systemui.Somnambulator")
+            addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        try { startActivity(intent) } catch (_: Exception) {
+            // Not available on this device — enter blank-screen idle instead
+            enterIdle()
+        }
     }
 
     // ── Package receiver ───────────────────────────────────────────────────────

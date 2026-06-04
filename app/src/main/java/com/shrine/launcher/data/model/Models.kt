@@ -13,6 +13,9 @@ enum class CardDisplayMode { ICON, BANNER }
 
 enum class RowKind { CATEGORY, CHANNEL }
 
+/** What happens when the idle timer fires (mirrors Projectivy's key_internal_idle_action). */
+enum class IdleAction { BLANK_SCREEN, SCREENSAVER }
+
 enum class CategoryType {
     ALL_APPS,
     FAVORITES,
@@ -112,6 +115,9 @@ data class LauncherPrefs(
     val statusBarIconSizePercent: Int       = 100,
     val idleModeEnabled: Boolean            = false,
     val idleTimeoutSeconds: Int             = 120,
+    val idleAction: IdleAction              = IdleAction.BLANK_SCREEN,
+    // Projectivy: double-tap BACK within 400 ms → launch screensaver
+    val doubleBackToScreensaver: Boolean    = false,
     val progressBarEnabled: Boolean         = true,
     val wallpaperSlideshow: Boolean         = false,
     val showWifiButton: Boolean             = false,

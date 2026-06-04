@@ -463,7 +463,10 @@ class SettingsPanelDialog(
     // ═══════════════════════════════════════════════════════════════════════════
 
     private fun buildMainMenu() {
-        addSectionHeader("SETTINGS")
+        // ── LAUNCHER ──────────────────────────────────────────────────────────
+        // Direct access to content management — mirrors Projectivy's top-level
+        // category list rather than burying everything under a sub-menu.
+        addSectionHeader("LAUNCHER")
         addEntry("All Apps", R.drawable.ic_grid, showArrow = true) {
             navigateTo("All Apps") { buildAllApps() }
         }
@@ -473,15 +476,32 @@ class SettingsPanelDialog(
         addEntry("Edit Channels", R.drawable.ic_channel, showArrow = true) {
             navigateTo("Edit Channels") { buildEditChannels() }
         }
-        addEntry("Shrine Settings", R.drawable.ic_settings, showArrow = true) {
-            navigateTo("Shrine Settings") { buildShrineSettings() }
+
+        // ── SETTINGS ──────────────────────────────────────────────────────────
+        // Flattened from the old "Shrine Settings" sub-page to match Projectivy's
+        // direct category navigation (General / Appearance / Manage at top level).
+        addSectionHeader("SETTINGS")
+        addEntry("General", R.drawable.ic_settings, showArrow = true) {
+            navigateTo("General") { buildGeneral() }
         }
-        addEntry("Android Settings", R.drawable.ic_android, showArrow = true) {
+        addEntry("Appearance", R.drawable.ic_grid, showArrow = true) {
+            navigateTo("Appearance") { buildAppearanceHub() }
+        }
+        addEntry("Idle Mode", R.drawable.ic_sleep, showArrow = true) {
+            navigateTo("Idle Mode") { buildIdleMode() }
+        }
+        addEntry("Manage Settings", R.drawable.ic_install, showArrow = true) {
+            navigateTo("Manage Settings") { buildManageSettings() }
+        }
+
+        // ── TOOLS ─────────────────────────────────────────────────────────────
+        addSectionHeader("TOOLS")
+        addEntry("Android Settings", R.drawable.ic_android) {
             context.startActivity(Intent(Settings.ACTION_SETTINGS).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             })
         }
-        addEntry("Install 3rd Party Apps", R.drawable.ic_install, showArrow = true) {
+        addEntry("Install Apps", R.drawable.ic_install, showArrow = true) {
             navigateTo("Install Apps") { buildInstallerPage() }
         }
         addEntry("ADB Shell", R.drawable.ic_tune, showArrow = true) {
@@ -1246,19 +1266,6 @@ class SettingsPanelDialog(
     // PAGE: SHRINE SETTINGS HUB
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private fun buildShrineSettings() {
-        addSectionHeader("CONFIGURE")
-        addEntry("General", R.drawable.ic_settings, showArrow = true) {
-            navigateTo("General") { buildGeneral() }
-        }
-        addEntry("Appearance", R.drawable.ic_grid, showArrow = true) {
-            navigateTo("Appearance") { buildAppearanceHub() }
-        }
-        addEntry("Manage Settings", R.drawable.ic_install, showArrow = true) {
-            navigateTo("Manage Settings") { buildManageSettings() }
-        }
-    }
-
     // ═══════════════════════════════════════════════════════════════════════════
     // PAGE: GENERAL
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1275,6 +1282,20 @@ class SettingsPanelDialog(
         addToggle("Enable Channels", checked = prefs.channelsEnabled) { checked ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked)); notifyChanged()
         }
+
+        // Default row picker — which row gets focus on home/resume
+        addSectionHeader("DEFAULT ROW")
+        val categoryRows = prefs.rows.filter { it.kind == com.shrine.launcher.data.model.RowKind.CATEGORY && it.isVisible }
+        categoryRows.forEach { row ->
+            val isDefault = prefs.defaultRowId == row.id ||
+                (prefs.defaultRowId == null && row.categoryType == com.shrine.launcher.data.model.CategoryType.ALL_APPS)
+            addEntry(row.title, labelColor = if (isDefault) 0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt()) {
+                prefRepo.savePrefs(prefRepo.loadPrefs().copy(defaultRowId = row.id)); notifyChanged()
+                rawShowPage(currentTitle); buildGeneral()
+            }
+        }
+
+        addSectionHeader("LAUNCHER")
 
         addEntry("Set as Default Launcher") {
             val intents = listOf(
@@ -1441,9 +1462,8 @@ class SettingsPanelDialog(
         addEntry("Status Bar", R.drawable.ic_status_bar, showArrow = true) {
             navigateTo("Status Bar") { buildStatusBar() }
         }
-        addEntry("Idle Mode", R.drawable.ic_sleep, showArrow = true) {
-            navigateTo("Idle Mode") { buildIdleMode() }
-        }
+        // Idle Mode is now a top-level item in the main menu (mirroring Projectivy
+        // where idle/power settings are separate from visual appearance settings).
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -1641,12 +1661,78 @@ class SettingsPanelDialog(
 
     private fun buildIdleMode() {
         val p = prefRepo.loadPrefs()
+
+        // ── Inactivity idle (Projectivy: key_internal_idle_detection) ──────────
+        addSectionHeader("INACTIVITY IDLE")
         addToggle("Enable idle mode", R.drawable.ic_sleep, p.idleModeEnabled) { c ->
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleModeEnabled = c)); notifyChanged()
         }
-        addSlider("Idle timeout", p.idleTimeoutSeconds, 30, 300, step = 30, displayFn = { s ->
-            if (s < 60) "${s}s" else "${s / 60}m${if (s % 60 > 0) " ${s % 60}s" else ""}"
-        }) { v -> prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = v)) }
+
+        // Timeout range 30 s → 3600 s (1 hour) — Projectivy defaults to 3 600 000 ms = 1 h.
+        // Step 30 s below 5 min, then 1-min steps, shown as human-readable label.
+        val timeoutSteps = (30..300 step 30).toList() + (360..3600 step 60).toList()
+        val currentTimeout = timeoutSteps.minByOrNull { kotlin.math.abs(it - p.idleTimeoutSeconds) } ?: p.idleTimeoutSeconds
+        val timeoutLabel = currentTimeout.let { s ->
+            when {
+                s < 60  -> "${s}s"
+                s % 60 == 0 -> "${s / 60}m"
+                else    -> "${s / 60}m ${s % 60}s"
+            }
+        }
+        addEntry("Idle timeout:  $timeoutLabel", showArrow = true) {
+            navigateTo("Idle Timeout") { buildIdleTimeoutPicker(timeoutSteps, currentTimeout) }
+        }
+
+        // ── Idle action (Projectivy: key_internal_idle_action) ────────────────
+        addSectionHeader("IDLE ACTION")
+        addEntry(
+            "Blank screen",
+            labelColor = if (p.idleAction == com.shrine.launcher.data.model.IdleAction.BLANK_SCREEN)
+                0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt()
+        ) {
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(
+                idleAction = com.shrine.launcher.data.model.IdleAction.BLANK_SCREEN)); notifyChanged()
+            rawShowPage(currentTitle); buildIdleMode()
+        }
+        addEntry(
+            "Screensaver",
+            labelColor = if (p.idleAction == com.shrine.launcher.data.model.IdleAction.SCREENSAVER)
+                0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt()
+        ) {
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(
+                idleAction = com.shrine.launcher.data.model.IdleAction.SCREENSAVER)); notifyChanged()
+            rawShowPage(currentTitle); buildIdleMode()
+        }
+
+        // ── Double-back shortcut (Projectivy: key_launcher_double_back_ambient_mode) ──
+        addSectionHeader("SHORTCUT")
+        addToggle(
+            "Double-back → screensaver",
+            checked = p.doubleBackToScreensaver
+        ) { c ->
+            prefRepo.savePrefs(prefRepo.loadPrefs().copy(doubleBackToScreensaver = c))
+        }
+    }
+
+    private fun buildIdleTimeoutPicker(steps: List<Int>, currentSeconds: Int) {
+        steps.forEach { secs ->
+            val label = when {
+                secs < 60  -> "${secs}s"
+                secs % 60 == 0 -> "${secs / 60}m"
+                else       -> "${secs / 60}m ${secs % 60}s"
+            }
+            addEntry(
+                label,
+                labelColor = if (secs == currentSeconds) 0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt()
+            ) {
+                prefRepo.savePrefs(prefRepo.loadPrefs().copy(idleTimeoutSeconds = secs)); notifyChanged()
+                // Pop back to Idle Mode page
+                if (navStack.isNotEmpty()) {
+                    val prev = navStack.removeLast()
+                    showPage(prev.title, push = false, builder = prev.builder)
+                }
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
