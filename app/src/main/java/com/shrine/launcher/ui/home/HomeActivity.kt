@@ -25,6 +25,7 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.shrine.launcher.data.model.*
 import com.shrine.launcher.databinding.ActivityHomeBinding
+import com.shrine.launcher.ui.splash.SplashActivity
 import com.shrine.launcher.util.ThemeUtil
 import com.shrine.launcher.util.TvDatabaseObserver
 import com.shrine.launcher.util.TvPermissionUtil
@@ -95,6 +96,11 @@ class HomeActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityHomeBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (!splashLaunched) {
+            splashLaunched = true
+            startActivity(Intent(this, SplashActivity::class.java))
+            overridePendingTransition(0, 0)
+        }
         setupRows()
         setupClock()
         setupObservers()
@@ -685,7 +691,7 @@ class HomeActivity : AppCompatActivity() {
         if (event.action == KeyEvent.ACTION_DOWN) {
             val focused = currentFocus
             if (focused != null && focused.isRowsDescendant()) {
-                lastRowsFocus = java.lang.ref.WeakReference(focused)
+                if (!rowsAdapter.allPanelsOpen) lastRowsFocus = java.lang.ref.WeakReference(focused)
                 // Row-to-row and row-to-statusbar navigation (only when panels are closed)
                 if (!rowsAdapter.allPanelsOpen &&
                     (event.keyCode == KeyEvent.KEYCODE_DPAD_UP ||
@@ -787,5 +793,9 @@ class HomeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         clockTimer?.cancel()
+    }
+
+    companion object {
+        @Volatile private var splashLaunched = false
     }
 }

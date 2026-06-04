@@ -1391,14 +1391,16 @@ class SettingsPanelDialog(
                                 if (ok) {
                                     updateStatusView?.let { it.text = "✓ Installed — restarting…"; it.setTextColor(0xFF4CAF50.toInt()) }
                                     kotlinx.coroutines.delay(1500)
-                                    val started = adb.executeShell("am start -n ${context.packageName}/.ui.splash.SplashActivity")
-                                    val amOk = started.exitCode == 0 || started.output.contains("Starting:", ignoreCase = true)
-                                    if (!amOk) {
-                                        context.packageManager.getLaunchIntentForPackage(context.packageName)?.apply {
-                                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        }?.let { context.startActivity(it) }
+                                    val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
+                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!.apply {
+                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                                     }
-                                    kotlinx.coroutines.delay(1500)
+                                    val pi = android.app.PendingIntent.getActivity(
+                                        context, 42, launchIntent,
+                                        android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                                    )
+                                    alarmMgr.setExact(android.app.AlarmManager.RTC, System.currentTimeMillis() + 2000L, pi)
+                                    kotlinx.coroutines.delay(500)
                                     android.os.Process.killProcess(android.os.Process.myPid())
                                 } else {
                                     updateStatusView?.let { it.text = "Install failed: ${result.output}"; it.setTextColor(0xFFCF6679.toInt()) }

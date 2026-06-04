@@ -36,10 +36,11 @@
         android:banner="@drawable/banner">
 
         <activity
-            android:name=".ui.splash.SplashActivity"
+            android:name=".ui.home.HomeActivity"
             android:exported="true"
             android:launchMode="singleTask"
-            android:configChanges="keyboard|keyboardHidden|navigation">
+            android:configChanges="keyboard|keyboardHidden|navigation"
+            android:windowSoftInputMode="stateUnspecified|adjustPan">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.HOME" />
@@ -49,11 +50,11 @@
         </activity>
 
         <activity
-            android:name=".ui.home.HomeActivity"
+            android:name=".ui.splash.SplashActivity"
             android:exported="false"
-            android:launchMode="singleTask"
-            android:configChanges="keyboard|keyboardHidden|navigation"
-            android:windowSoftInputMode="stateUnspecified|adjustPan" />
+            android:launchMode="singleTop"
+            android:theme="@style/Theme.Splash"
+            android:configChanges="keyboard|keyboardHidden|navigation" />
 
         <activity android:name=".ui.settings.SettingsActivity"
             android:exported="false" android:label="@string/settings_title" />
