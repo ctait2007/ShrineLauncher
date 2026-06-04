@@ -529,8 +529,15 @@ class HomeActivity : AppCompatActivity() {
     private fun handleAppClick(app: AppInfo) {
         if (app.packageName == "com.shrine.launcher.INSTALL_ROW") {
             startActivity(Intent(this, com.shrine.launcher.ui.installer.AppInstallerActivity::class.java))
+            return
+        }
+        // Launch using Activity context (this) — bypasses the application-context
+        // background-start restriction present on some Fire OS builds.
+        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+        if (intent != null) {
+            startActivity(intent)
         } else {
-            vm.launchApp(app.packageName)
+            android.widget.Toast.makeText(this, "Can't open ${app.label}", android.widget.Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -680,7 +687,9 @@ class HomeActivity : AppCompatActivity() {
                 } catch (e2: Exception) { /* fall through */ }
             }
         }
-        vm.launchApp(content.packageName)
+        // Same Activity-context approach for the fallback path
+        packageManager.getLaunchIntentForPackage(content.packageName)
+            ?.let { startActivity(it) }
     }
 
     // ── Key events ────────────────────────────────────────────────────────────

@@ -107,6 +107,9 @@
                 android:resource="@xml/file_provider_paths" />
         </provider>
 
+        <!-- Fired by AlarmManager to relaunch the launcher after a self-update -->
+        <receiver android:name=".util.RestartReceiver" android:exported="false" />
+
         <receiver android:name=".util.BootReceiver" android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />

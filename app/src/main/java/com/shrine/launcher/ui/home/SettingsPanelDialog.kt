@@ -1383,26 +1383,23 @@ class SettingsPanelDialog(
                                 updateStatusView?.let { it.text = "Download failed"; it.setTextColor(0xFFCF6679.toInt()) }
                                 btn.visibility = View.VISIBLE; return@launch
                             }
+                            // Schedule restart BEFORE pm install — the install kills our
+                            // process before we can set any alarm afterwards.
+                            com.shrine.launcher.util.scheduleRestart(context, 60_000L)
+
                             updateStatusView?.text = "Installing…"
                             if (useTmp) {
                                 val result = adb.executeShell("pm install -r $tmpPath", 60_000L)
                                 adb.executeShell("rm -f $tmpPath")
                                 val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
                                 if (ok) {
+                                    // Process usually dies before reaching here; if it hasn't, shorten alarm.
+                                    com.shrine.launcher.util.scheduleRestart(context, 3_000L)
                                     updateStatusView?.let { it.text = "✓ Installed — restarting…"; it.setTextColor(0xFF4CAF50.toInt()) }
-                                    kotlinx.coroutines.delay(1500)
-                                    val alarmMgr = context.getSystemService(Context.ALARM_SERVICE) as android.app.AlarmManager
-                                    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)!!.apply {
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                                    }
-                                    val pi = android.app.PendingIntent.getActivity(
-                                        context, 42, launchIntent,
-                                        android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                                    )
-                                    alarmMgr.setExact(android.app.AlarmManager.RTC, System.currentTimeMillis() + 2000L, pi)
                                     kotlinx.coroutines.delay(500)
                                     android.os.Process.killProcess(android.os.Process.myPid())
                                 } else {
+                                    com.shrine.launcher.util.cancelRestart(context)
                                     updateStatusView?.let { it.text = "Install failed: ${result.output}"; it.setTextColor(0xFFCF6679.toInt()) }
                                     btn.visibility = View.VISIBLE
                                 }

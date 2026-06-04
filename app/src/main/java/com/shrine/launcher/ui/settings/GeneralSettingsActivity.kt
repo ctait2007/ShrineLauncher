@@ -121,26 +121,23 @@ class GeneralSettingsActivity : BaseSettingsActivity() {
 
             if (!downloaded) { updateSubtitle?.text = "Download failed — check connection"; return@launch }
 
+            // Schedule restart BEFORE pm install — the install kills our process before
+            // we can set any alarm afterwards. 60 s is a safe upper bound for the install.
+            com.shrine.launcher.util.scheduleRestart(this@GeneralSettingsActivity, 60_000L)
+
             updateSubtitle?.text = "Installing…"
             if (useTmp) {
                 val result = adb.executeShell("pm install -r $tmpPath", 60_000L)
                 adb.executeShell("rm -f $tmpPath")
                 val ok = result.exitCode == 0 || result.output.contains("Success", ignoreCase = true)
                 if (ok) {
+                    // Process usually dies before reaching here; if it hasn't, shorten alarm.
+                    com.shrine.launcher.util.scheduleRestart(this@GeneralSettingsActivity, 3_000L)
                     updateSubtitle?.text = "✓ Installed — restarting…"
-                    delay(1500)
-                    val alarmMgr = getSystemService(android.content.Context.ALARM_SERVICE) as android.app.AlarmManager
-                    val launchIntent = packageManager.getLaunchIntentForPackage(packageName)!!.apply {
-                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    }
-                    val pi = android.app.PendingIntent.getActivity(
-                        this@GeneralSettingsActivity, 42, launchIntent,
-                        android.app.PendingIntent.FLAG_IMMUTABLE or android.app.PendingIntent.FLAG_UPDATE_CURRENT
-                    )
-                    alarmMgr.setExact(android.app.AlarmManager.RTC, System.currentTimeMillis() + 2000L, pi)
                     delay(500)
                     android.os.Process.killProcess(android.os.Process.myPid())
                 } else {
+                    com.shrine.launcher.util.cancelRestart(this@GeneralSettingsActivity)
                     updateSubtitle?.text = "Install failed: ${result.output}"
                 }
             } else {
