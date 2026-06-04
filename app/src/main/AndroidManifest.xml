@@ -113,6 +113,10 @@
         <receiver android:name=".util.BootReceiver" android:exported="true">
             <intent-filter android:priority="1000">
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- Fired to the NEW process right after pm install -r completes.
+                     Pending alarms are wiped on package replace, so this is the
+                     only reliable hook to restart after a silent self-update. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
 

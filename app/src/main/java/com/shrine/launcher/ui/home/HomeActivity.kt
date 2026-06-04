@@ -531,13 +531,24 @@ class HomeActivity : AppCompatActivity() {
             startActivity(Intent(this, com.shrine.launcher.ui.installer.AppInstallerActivity::class.java))
             return
         }
-        // Launch using Activity context (this) — bypasses the application-context
-        // background-start restriction present on some Fire OS builds.
-        val intent = packageManager.getLaunchIntentForPackage(app.packageName)
+        launchPackage(app.packageName) {
+            android.widget.Toast.makeText(this, "Can't open ${app.label}", android.widget.Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    /**
+     * Launch a package using Activity context (bypasses Fire OS background-start restrictions).
+     * Mirrors Projectivy: tries getLeanbackLaunchIntentForPackage first — on Fire TV many
+     * apps only register LEANBACK_LAUNCHER, and some Fire OS builds return null from
+     * getLaunchIntentForPackage for those apps.
+     */
+    private fun launchPackage(packageName: String, onFailure: (() -> Unit)? = null) {
+        val intent = packageManager.getLeanbackLaunchIntentForPackage(packageName)
+            ?: packageManager.getLaunchIntentForPackage(packageName)
         if (intent != null) {
             startActivity(intent)
         } else {
-            android.widget.Toast.makeText(this, "Can't open ${app.label}", android.widget.Toast.LENGTH_SHORT).show()
+            onFailure?.invoke()
         }
     }
 
@@ -687,9 +698,8 @@ class HomeActivity : AppCompatActivity() {
                 } catch (e2: Exception) { /* fall through */ }
             }
         }
-        // Same Activity-context approach for the fallback path
-        packageManager.getLaunchIntentForPackage(content.packageName)
-            ?.let { startActivity(it) }
+        // Same leanback-first approach for the fallback path
+        launchPackage(content.packageName)
     }
 
     // ── Key events ────────────────────────────────────────────────────────────
