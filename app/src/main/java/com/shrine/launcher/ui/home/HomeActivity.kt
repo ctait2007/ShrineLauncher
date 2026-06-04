@@ -43,6 +43,10 @@ class HomeActivity : AppCompatActivity() {
     private var slideshowIndex = 0
     private var initialFocusSet = false
 
+    // Rapid-resume guard: if we were paused for <100 ms (config change, brief overlay)
+    // skip the full data reload and just restore idle timer — Projectivy uses 50 ms.
+    private var lastPauseTime = 0L
+
     // Idle mode
     private val idleHandler = Handler(Looper.getMainLooper())
     private var isIdle = false
@@ -538,16 +542,21 @@ class HomeActivity : AppCompatActivity() {
 
     /**
      * Launch a package using Activity context (bypasses Fire OS background-start restrictions).
-     * Mirrors Projectivy: tries getLeanbackLaunchIntentForPackage first — on Fire TV many
-     * apps only register LEANBACK_LAUNCHER, and some Fire OS builds return null from
-     * getLaunchIntentForPackage for those apps.
+     * Tries getLeanbackLaunchIntentForPackage first — many Fire TV apps only register
+     * LEANBACK_LAUNCHER, and some Fire OS builds return null from getLaunchIntentForPackage.
+     * Catches ActivityNotFoundException separately so a corrupt/uninstalling app doesn't
+     * silently fail without feedback.
      */
     private fun launchPackage(packageName: String, onFailure: (() -> Unit)? = null) {
         val intent = packageManager.getLeanbackLaunchIntentForPackage(packageName)
             ?: packageManager.getLaunchIntentForPackage(packageName)
-        if (intent != null) {
+        if (intent == null) { onFailure?.invoke(); return }
+        try {
             startActivity(intent)
-        } else {
+            vm.recordLaunch(packageName)
+        } catch (e: android.content.ActivityNotFoundException) {
+            onFailure?.invoke()
+        } catch (e: Exception) {
             onFailure?.invoke()
         }
     }
@@ -686,19 +695,27 @@ class HomeActivity : AppCompatActivity() {
     private fun launchContent(content: TvContent) {
         content.deepLinkUri?.let { uri ->
             try {
-                val intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME)
-                    .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+                val intent = Intent.parseUri(uri, Intent.URI_INTENT_SCHEME).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    // Projectivy pattern: stamp the package so the intent never resolves
+                    // to the wrong app when the package component is missing from the URI.
+                    if (content.packageName.isNotBlank()) setPackage(content.packageName)
+                }
                 startActivity(intent)
+                vm.recordLaunch(content.packageName)
                 return
+            } catch (e: android.content.ActivityNotFoundException) {
+                /* fall through to ACTION_VIEW attempt */
             } catch (e: Exception) {
                 try {
                     startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(uri))
                         .apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) })
+                    vm.recordLaunch(content.packageName)
                     return
                 } catch (e2: Exception) { /* fall through */ }
             }
         }
-        // Same leanback-first approach for the fallback path
+        // Leanback-first fallback
         launchPackage(content.packageName)
     }
 
@@ -800,6 +817,8 @@ class HomeActivity : AppCompatActivity() {
             addAction(Intent.ACTION_PACKAGE_ADDED)
             addAction(Intent.ACTION_PACKAGE_REMOVED)
             addAction(Intent.ACTION_PACKAGE_CHANGED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)       // app update — icon/label may change
+            addAction(Intent.ACTION_PACKAGE_FULLY_REMOVED)  // complete removal incl. data
             addDataScheme("package")
         }
         registerReceiver(packageReceiver, filter)
@@ -807,14 +826,19 @@ class HomeActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        initialFocusSet = false
-        vm.loadAll()
+        val rapid = System.currentTimeMillis() - lastPauseTime < 100L
+        if (!rapid) {
+            // Full return from another app or cold start: reload data and reset focus.
+            initialFocusSet = false
+            vm.loadAll()
+        }
         vm.scheduleAutoRefresh()
         resetIdleTimer()
     }
 
     override fun onPause() {
         super.onPause()
+        lastPauseTime = System.currentTimeMillis()
         vm.cancelAutoRefresh()
         stopSlideshow()
         idleHandler.removeCallbacks(idleRunnable)

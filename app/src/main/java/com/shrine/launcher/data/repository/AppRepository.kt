@@ -1,10 +1,8 @@
 package com.shrine.launcher.data.repository
 
-import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.os.Build
 import com.shrine.launcher.data.model.AppInfo
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,25 +11,33 @@ class AppRepository(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager
 
-    /** Returns all launchable apps sorted alphabetically.
-     *  Queries both CATEGORY_LAUNCHER (phone/standard) and
-     *  CATEGORY_LEANBACK_LAUNCHER (TV/Fire TV specific) to catch all apps. */
+    // SharedPreferences key → epoch ms of last launcher-initiated launch.
+    // No system permissions required — we own this data.
+    private val launchPrefs by lazy {
+        context.getSharedPreferences("shrine_launch_history", Context.MODE_PRIVATE)
+    }
+
+    /**
+     * Returns all launchable apps sorted alphabetically.
+     *
+     * Queries LEANBACK_LAUNCHER first (correct for Fire TV), then LAUNCHER.
+     * GET_RESOLVED_FILTER (flag 64) returns the IntentFilter alongside each
+     * result — needed by PackageManager to correctly resolve TV-only apps.
+     * Because we query LEANBACK first and use a map, any package found there
+     * is skipped in the LAUNCHER pass, preventing duplicate rows.
+     */
     suspend fun getAllApps(): List<AppInfo> = withContext(Dispatchers.IO) {
         val results = mutableMapOf<String, AppInfo>()
 
-        // Standard launcher apps
-        val standardIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_LAUNCHER)
-        }
-        // TV/Fire TV leanback launcher apps
-        val leanbackIntent = Intent(Intent.ACTION_MAIN).apply {
-            addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
-        }
-
-        for (intent in listOf(standardIntent, leanbackIntent)) {
-            pm.queryIntentActivities(intent, 0).forEach { ri ->
+        for (category in listOf(
+            Intent.CATEGORY_LEANBACK_LAUNCHER,  // TV/Fire TV — query first
+            Intent.CATEGORY_LAUNCHER            // standard — fill gaps only
+        )) {
+            val intent = Intent(Intent.ACTION_MAIN).apply { addCategory(category) }
+            @Suppress("DEPRECATION")
+            pm.queryIntentActivities(intent, PackageManager.GET_RESOLVED_FILTER).forEach { ri ->
                 val pkg = ri.activityInfo.packageName
-                if (!results.containsKey(pkg)) {
+                if (!results.containsKey(pkg)) {           // LEANBACK entries win
                     results[pkg] = AppInfo(
                         packageName = pkg,
                         label       = ri.loadLabel(pm).toString(),
@@ -48,36 +54,40 @@ class AppRepository(private val context: Context) {
             .sortedBy { it.label.lowercase() }
     }
 
-    /** Returns apps sorted by last-used time (requires PACKAGE_USAGE_STATS permission). */
+    /**
+     * Returns up to [limit] apps sorted by last launcher-initiated launch time.
+     * Uses our own SharedPreferences store — no PACKAGE_USAGE_STATS permission needed.
+     */
     suspend fun getRecentlyUsed(limit: Int = 20): List<AppInfo> = withContext(Dispatchers.IO) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP_MR1) return@withContext emptyList()
-
-        val usm = context.getSystemService(Context.USAGE_STATS_SERVICE) as? UsageStatsManager
-            ?: return@withContext emptyList()
-
-        val now = System.currentTimeMillis()
-        val stats = usm.queryUsageStats(
-            UsageStatsManager.INTERVAL_WEEKLY,
-            now - 7 * 24 * 60 * 60 * 1000L,
-            now
-        ) ?: return@withContext emptyList()
-
         val allApps = getAllApps().associateBy { it.packageName }
-
-        stats.asSequence()
-            .filter { it.lastTimeUsed > 0 && allApps.containsKey(it.packageName) }
-            .sortedByDescending { it.lastTimeUsed }
+        @Suppress("UNCHECKED_CAST")
+        (launchPrefs.all as Map<String, Long>)
+            .asSequence()
+            .filter { (pkg, _) -> allApps.containsKey(pkg) }
+            .sortedByDescending { (_, ts) -> ts }
             .take(limit)
-            .mapNotNull { allApps[it.packageName] }
+            .mapNotNull { (pkg, _) -> allApps[pkg] }
             .toList()
     }
 
-    /** Launch an app by package name. Returns false if not found. */
+    /** Record a launcher-initiated launch. Called from HomeActivity after startActivity succeeds. */
+    fun recordLaunch(packageName: String) {
+        launchPrefs.edit().putLong(packageName, System.currentTimeMillis()).apply()
+    }
+
+    /**
+     * Launch an app by package name.
+     * Tries getLeanbackLaunchIntentForPackage first (correct for Fire TV apps that
+     * only register LEANBACK_LAUNCHER), falls back to getLaunchIntentForPackage.
+     */
     fun launchApp(packageName: String): Boolean {
-        val intent = pm.getLaunchIntentForPackage(packageName) ?: return false
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        val intent = (pm.getLeanbackLaunchIntentForPackage(packageName)
+            ?: pm.getLaunchIntentForPackage(packageName))
+            ?.apply { addFlags(Intent.FLAG_ACTIVITY_NEW_TASK) }
+            ?: return false
         return try {
             context.startActivity(intent)
+            recordLaunch(packageName)
             true
         } catch (e: Exception) {
             false

@@ -136,6 +136,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun launchApp(packageName: String) = appRepo.launchApp(packageName)
+    fun recordLaunch(packageName: String) = appRepo.recordLaunch(packageName)
 
     fun toggleFavourite(packageName: String) {
         prefRepo.toggleFavourite(packageName)
