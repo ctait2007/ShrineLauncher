@@ -170,6 +170,8 @@ class HomeActivity : AppCompatActivity() {
         // Skip adapter recreation if layout config is unchanged — preserves ViewHolders and focus
         if (config == lastAdapterConfig) return
         lastAdapterConfig = config
+        // New adapter = new card views; rebuildRows() must re-run setInitialRowFocus()
+        initialFocusSet = false
 
         rowsAdapter = RowsAdapter(
             onAppClick             = { app -> handleAppClick(app) },
@@ -541,10 +543,10 @@ class HomeActivity : AppCompatActivity() {
             onDismissed       = {
                 activePanel = null
                 val target = lastRowsFocus?.get()
-                if (target != null && target.isAttachedToWindow) {
+                if (target != null && target.isAttachedToWindow && target.isFocusable) {
                     target.requestFocus()
                 } else {
-                    binding.rvRows.requestFocus()
+                    binding.rvRows.post { focusFirstCardOfFirstVisibleRow() }
                 }
                 vm.loadAll()
             },
@@ -631,8 +633,8 @@ class HomeActivity : AppCompatActivity() {
             onDismissed       = {
                 activePanel = null
                 val target = lastRowsFocus?.get()
-                if (target != null && target.isAttachedToWindow) target.requestFocus()
-                else binding.rvRows.requestFocus()
+                if (target != null && target.isAttachedToWindow && target.isFocusable) target.requestFocus()
+                else binding.rvRows.post { focusFirstCardOfFirstVisibleRow() }
                 vm.loadAll()
             },
             onSettingsChanged = { vm.loadAll() }
@@ -751,6 +753,15 @@ class HomeActivity : AppCompatActivity() {
             }
         }
         return true
+    }
+
+    // Pressing HOME while the launcher is already the top activity calls onNewIntent
+    // (not onCreate/onResume). Reset focus to the first card so the launcher is always
+    // in a clean, navigable state after a HOME press.
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        initialFocusSet = false
+        binding.rvRows.post { focusFirstCardOfFirstVisibleRow() }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
