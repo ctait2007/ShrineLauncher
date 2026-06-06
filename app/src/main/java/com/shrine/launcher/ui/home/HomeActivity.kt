@@ -382,8 +382,10 @@ class HomeActivity : AppCompatActivity() {
 
     private fun applyWallpaper(uriString: String) {
         try {
+            val dm = resources.displayMetrics
             com.bumptech.glide.Glide.with(this)
                 .load(android.net.Uri.parse(uriString))
+                .override(dm.widthPixels, dm.heightPixels)
                 .centerCrop()
                 .transition(
                     com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions()

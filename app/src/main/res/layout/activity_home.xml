@@ -54,7 +54,6 @@
                 android:text="12:00"
                 android:textColor="@color/text_primary"
                 android:textSize="20sp"
-                android:textStyle="bold"
                 android:fontFamily="sans-serif-light" />
 
             <TextView
