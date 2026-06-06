@@ -189,6 +189,9 @@ class AppsAdapter(
             ivParams.width  = cardW
             ivParams.height = cardH
             ivIcon.layoutParams = ivParams
+
+            tvName.layoutParams.width = cardW
+            tvName.requestLayout()
         }
     }
 

@@ -145,6 +145,7 @@ class AppInstallerActivity : AppCompatActivity() {
         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
 
         if (hasPermission) {
+            com.shrine.launcher.util.scheduleRestart(this, 4000)
             val result = withContext(Dispatchers.IO) {
                 try {
                     val process  = Runtime.getRuntime().exec(
@@ -163,8 +164,14 @@ class AppInstallerActivity : AppCompatActivity() {
 
             setLoading(false)
             if (result) {
-                setStatus("✓ Installed successfully")
                 apkFile.delete()
+                com.shrine.launcher.util.cancelRestart(this)
+                startActivity(
+                    Intent(this, com.shrine.launcher.ui.home.HomeActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                    }
+                )
+                finish()
                 return
             }
         }
