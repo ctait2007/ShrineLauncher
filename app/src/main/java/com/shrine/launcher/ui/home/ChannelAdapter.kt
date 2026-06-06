@@ -139,8 +139,9 @@ class ChannelAdapter(
                 if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        if (adapterPosition == 0 && event.repeatCount == 0) {
-                            onLeftFromFirst?.invoke(); true
+                        if (adapterPosition == 0) {
+                            if (event.repeatCount == 0) onLeftFromFirst?.invoke()
+                            true  // always consume at position 0 — same fix as AppsAdapter
                         } else false
                     }
                     android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {

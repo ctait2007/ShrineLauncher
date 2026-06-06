@@ -82,9 +82,14 @@ class AppsAdapter(
                 if (event.action != android.view.KeyEvent.ACTION_DOWN) return@setOnKeyListener false
                 when (keyCode) {
                     android.view.KeyEvent.KEYCODE_DPAD_LEFT -> {
-                        // repeatCount > 0 means the key is held — don't open the panel on hold
-                        if (adapterPosition == 0 && event.repeatCount == 0) {
-                            onLeftFromFirst?.invoke(); true
+                        if (adapterPosition == 0) {
+                            // First press: open the side panel.
+                            // Repeated / held presses: consume silently so Android's
+                            // focus finder cannot jump to a card in another row that
+                            // is geometrically to our left because it hasn't scrolled
+                            // back to position 0 yet.
+                            if (event.repeatCount == 0) onLeftFromFirst?.invoke()
+                            true
                         } else false
                     }
                     android.view.KeyEvent.KEYCODE_DPAD_RIGHT -> {

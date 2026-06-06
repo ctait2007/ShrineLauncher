@@ -114,6 +114,7 @@ class HomeActivity : AppCompatActivity() {
         setupObservers()
         setupButtons()
         requestTvPermissions()
+        preWarmWallpaper()
     }
 
     override fun onStart() {
@@ -360,6 +361,24 @@ class HomeActivity : AppCompatActivity() {
     }
 
     // ── Wallpaper / Slideshow ──────────────────────────────────────────────────
+
+    /**
+     * Start loading the wallpaper into ivWallpaper *during* the splash so Glide's
+     * memory cache is warm before HomeActivity is revealed. Without this, the dark
+     * window background is exposed for 0.5–2 s while Glide loads from disk.
+     * The splash covers ivWallpaper so the user never sees this early load.
+     */
+    private fun preWarmWallpaper() {
+        lifecycleScope.launch {
+            val uri = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                val p = com.shrine.launcher.data.repository.PreferencesRepository
+                    .getInstance(this@HomeActivity).loadPrefs()
+                p.wallpaperUris.firstOrNull() ?: p.wallpaperUri
+            }
+            if (!uri.isNullOrBlank()) applyWallpaper(uri)
+        }
+    }
+
 
     private fun applyWallpaper(uriString: String) {
         try {
