@@ -90,13 +90,16 @@ class ChannelAdapter(
 
             // Build a reliable progress drawable — XML progressTint is ignored on some
             // Fire TV builds. LayerDrawable + ClipDrawable works on all versions.
+            val barRadius = progressBar.resources.displayMetrics.density * 3f
             val progressFill = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
                 setColor(0xFFE53935.toInt())
+                cornerRadius = barRadius
             }
             val progressTrack = android.graphics.drawable.GradientDrawable().apply {
                 shape = android.graphics.drawable.GradientDrawable.RECTANGLE
-                setColor(0x44FFFFFF)
+                setColor(0x55FFFFFF)
+                cornerRadius = barRadius
             }
             val clip = android.graphics.drawable.ClipDrawable(
                 progressFill, android.view.Gravity.START,
