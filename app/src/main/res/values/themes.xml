@@ -10,6 +10,9 @@
         <item name="android:textColorPrimary">@color/text_primary</item>
         <item name="android:textColorSecondary">@color/text_secondary</item>
         <item name="android:windowFullscreen">true</item>
+        <!-- Roboto Condensed globally — sans-serif-condensed is the system alias,
+             no font file needed, available on all Android / Fire OS versions. -->
+        <item name="android:fontFamily">sans-serif-condensed</item>
     </style>
 
     <!-- Section header label -->

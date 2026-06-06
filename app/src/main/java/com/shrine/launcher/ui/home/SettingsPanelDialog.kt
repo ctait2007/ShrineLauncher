@@ -1283,18 +1283,6 @@ class SettingsPanelDialog(
             prefRepo.savePrefs(prefRepo.loadPrefs().copy(channelsEnabled = checked)); notifyChanged()
         }
 
-        // Default row picker — which row gets focus on home/resume
-        addSectionHeader("DEFAULT ROW")
-        val categoryRows = prefs.rows.filter { it.kind == com.shrine.launcher.data.model.RowKind.CATEGORY && it.isVisible }
-        categoryRows.forEach { row ->
-            val isDefault = prefs.defaultRowId == row.id ||
-                (prefs.defaultRowId == null && row.categoryType == com.shrine.launcher.data.model.CategoryType.ALL_APPS)
-            addEntry(row.title, labelColor = if (isDefault) 0xFFFFFFFF.toInt() else 0xFFB0B0B0.toInt()) {
-                prefRepo.savePrefs(prefRepo.loadPrefs().copy(defaultRowId = row.id)); notifyChanged()
-                rawShowPage(currentTitle); buildGeneral()
-            }
-        }
-
         addSectionHeader("LAUNCHER")
 
         addEntry("Set as Default Launcher") {
