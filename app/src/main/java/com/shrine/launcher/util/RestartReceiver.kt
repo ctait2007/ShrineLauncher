@@ -10,9 +10,9 @@ import android.os.Build
 /** Fired by AlarmManager after a self-update to relaunch the launcher in a fresh process. */
 class RestartReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
-        val launch = context.packageManager
-            .getLaunchIntentForPackage(context.packageName) ?: return
-        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        val launch = Intent(context, com.shrine.launcher.ui.home.HomeActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        }
         context.startActivity(launch)
     }
 }

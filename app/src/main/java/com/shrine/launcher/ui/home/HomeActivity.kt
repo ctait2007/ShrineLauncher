@@ -854,8 +854,9 @@ class HomeActivity : AppCompatActivity() {
     // in a clean, navigable state after a HOME press.
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
+        binding.mainScroll.scrollTo(0, 0)
         initialFocusSet = false
-        binding.rvRows.post { focusFirstCardOfFirstVisibleRow() }
+        binding.rvRows.post { setInitialRowFocus() }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -911,6 +912,8 @@ class HomeActivity : AppCompatActivity() {
             // Full return from another app or cold start: reload data and reset focus.
             initialFocusSet = false
             vm.loadAll()
+            binding.mainScroll.scrollTo(0, 0)
+            binding.rvRows.post { setInitialRowFocus() }
         }
         vm.scheduleAutoRefresh()
         resetIdleTimer()
