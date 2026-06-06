@@ -366,11 +366,35 @@ class HomeActivity : AppCompatActivity() {
             com.bumptech.glide.Glide.with(this)
                 .load(android.net.Uri.parse(uriString))
                 .centerCrop()
-                .transition(com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions.withCrossFade(600))
+                .transition(
+                    com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions()
+                        .transition(alwaysCrossFadeFactory)
+                )
                 .into(binding.ivWallpaper)
         } catch (e: Exception) {
             android.util.Log.w("HomeActivity", "Wallpaper load failed: ${e.message}")
         }
+    }
+
+    companion object {
+        @Volatile private var splashLaunched = false
+
+        /**
+         * Glide's DrawableCrossFadeFactory returns NoTransition for MEMORY_CACHE hits,
+         * so after the first slideshow cycle every switch is instant. This factory
+         * always returns a real DrawableCrossFadeTransition (600 ms, cross-dissolve)
+         * regardless of the DataSource, restoring visible transitions every time.
+         * setCrossFadeEnabled = true → simultaneous fade-out/fade-in (true cross-dissolve),
+         * not just fade-in on top of the previous drawable.
+         */
+        private val alwaysCrossFadeFactory =
+            object : com.bumptech.glide.request.transition.TransitionFactory<android.graphics.drawable.Drawable> {
+                override fun build(
+                    dataSource: com.bumptech.glide.load.DataSource,
+                    isFirstResource: Boolean
+                ): com.bumptech.glide.request.transition.Transition<android.graphics.drawable.Drawable> =
+                    com.bumptech.glide.request.transition.DrawableCrossFadeTransition(600, true)
+            }
     }
 
     private fun startSlideshow(uris: List<String>, intervalSeconds: Int) {
@@ -884,7 +908,4 @@ class HomeActivity : AppCompatActivity() {
         clockTimer?.cancel()
     }
 
-    companion object {
-        @Volatile private var splashLaunched = false
-    }
 }
