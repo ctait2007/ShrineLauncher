@@ -64,6 +64,9 @@ class ChannelAdapter(
             cardRoot.layoutParams = params
             cardRoot.requestLayout()
 
+            tvTitle.layoutParams.width    = widthPx
+            tvSubtitle.layoutParams.width = widthPx
+
             // Clip cardRoot itself so all children (artwork, progress bar, focus overlay)
             // share the same rounded boundary. The progress bar at the bottom will have
             // its corners naturally clipped to match the card's roundedness.
